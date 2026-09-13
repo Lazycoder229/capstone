@@ -220,7 +220,7 @@ export default function PrimeLanding() {
       style={{ fontFamily: "var(--font-body)" }}
     >
       {/* Nav */}
-      <header className="border-b border-[#EADFC0]">
+      <header className="sticky top-0 z-50 border-b border-[#EADFC0] bg-[#FFFBF0]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <span
             className="text-xl tracking-tight"
