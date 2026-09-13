@@ -1,7 +1,7 @@
 import dotenv from "dotenv"
 import { DataSource } from "typeorm"
 
-import { AppUserEntity, domainEntities } from "./entities/index.js"
+import { AppUserEntity, domainEntities } from "./entities"
 
 dotenv.config({ path: ".env.local" })
 dotenv.config({ path: ".env" })
