@@ -258,11 +258,43 @@ export class EmployeeEntity extends IdEntity {
   @Column({ length: 36, unique: true }) userId!: string
   @Column({ length: 20, unique: true }) employeeNumber!: string
   @Column({ length: 100 }) position!: string
+  @Column({ type: "varchar", length: 100, nullable: true }) department!: string | null
+  @Column({ type: "varchar", length: 50, unique: true, nullable: true }) rfidCardUid!: string | null
   @Column({ type: "date" }) dateHired!: string
   @Column({ type: "date", nullable: true }) dateTerminated!: string | null
   @Column({ type: "enum", enum: EmploymentStatus, default: EmploymentStatus.ACTIVE }) employmentStatus!: EmploymentStatus
   @Column({ type: "decimal", precision: 10, scale: 2 }) basicSalary!: string
   @Column({ type: "enum", enum: SalaryType }) salaryType!: SalaryType
+}
+
+export enum AttendanceStatus {
+  ON_TIME = "on_time",
+  LATE = "late",
+  OVERTIME = "overtime",
+  INCOMPLETE = "incomplete",
+  ABSENT = "absent",
+}
+
+export enum AttendanceMethod {
+  RFID = "rfid",
+  MANUAL = "manual",
+  PIN = "pin",
+}
+
+@Entity("attendance_logs")
+export class AttendanceLogEntity extends IdEntity {
+  @Column({ length: 36 }) employeeId!: string
+  @Column({ type: "date" }) logDate!: string
+  @Column({ type: "datetime" }) clockIn!: Date
+  @Column({ type: "datetime", nullable: true }) clockOut!: Date | null
+  @Column({ type: "decimal", precision: 5, scale: 2, nullable: true }) totalHours!: string | null
+  @Column({ type: "int", default: 0 }) lateMinutes!: number
+  @Column({ type: "decimal", precision: 5, scale: 2, default: 0 }) overtimeHours!: string
+  @Column({ type: "enum", enum: AttendanceStatus, default: AttendanceStatus.ON_TIME }) status!: AttendanceStatus
+  @Column({ type: "enum", enum: AttendanceMethod, default: AttendanceMethod.RFID }) method!: AttendanceMethod
+  @Column({ type: "varchar", length: 50, nullable: true }) rfidCardUidUsed!: string | null
+  @Column({ type: "text", nullable: true }) notes!: string | null
+  @CreateDateColumn({ type: "datetime" }) createdAt!: Date
 }
 
 @Entity("deduction_types")
@@ -382,6 +414,110 @@ export class AuditLogEntity extends IdEntity {
   @CreateDateColumn({ type: "datetime" }) createdAt!: Date
 }
 
+export enum StockLogType {
+  STOCK_IN = "stock_in",
+  ADJUSTMENT = "adjustment",
+  WASTE = "waste",
+  CONSUMED = "consumed",
+}
+
+export enum StockItemType {
+  INGREDIENT = "ingredient",
+  MENU_ITEM = "menu_item",
+}
+
+@Entity("inventory_categories")
+export class InventoryCategoryEntity extends IdEntity {
+  @Column({ length: 100 }) name!: string
+  @CreateDateColumn({ type: "datetime" }) createdAt!: Date
+}
+
+@Entity("inventory_items")
+export class InventoryItemEntity extends TimestampedEntity {
+  @Column({ type: "varchar", length: 36, nullable: true }) categoryId!: string | null
+  @Column({ length: 150 }) name!: string
+  @Column({ length: 30 }) unit!: string
+  @Column({ type: "decimal", precision: 10, scale: 3, default: 0 }) stockQuantity!: string
+  @Column({ type: "decimal", precision: 10, scale: 3, nullable: true }) reorderThreshold!: string | null
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true }) unitCost!: string | null
+  @Column({ type: "varchar", length: 150, nullable: true }) supplier!: string | null
+  @Column({ default: true }) isActive!: boolean
+}
+
+@Entity("inventory_stock_logs")
+export class InventoryStockLogEntity extends IdEntity {
+  @Column({ type: "enum", enum: StockItemType, default: StockItemType.INGREDIENT }) itemType!: StockItemType
+  @Column({ type: "varchar", length: 36, nullable: true }) inventoryItemId!: string | null
+  @Column({ type: "varchar", length: 36, nullable: true }) menuItemId!: string | null
+  @Column({ type: "enum", enum: StockLogType }) type!: StockLogType
+  @Column({ type: "decimal", precision: 10, scale: 3 }) quantityChange!: string
+  @Column({ type: "decimal", precision: 10, scale: 3, nullable: true }) quantityAfter!: string | null
+  @Column({ type: "varchar", length: 255, nullable: true }) note!: string | null
+  @Column({ length: 36 }) performedByStaffId!: string
+  @CreateDateColumn({ type: "datetime" }) createdAt!: Date
+}
+
+@Entity("menu_item_ingredients")
+export class MenuItemIngredientEntity {
+  @PrimaryColumn({ type: "varchar", length: 36 }) menuItemId!: string
+  @PrimaryColumn({ type: "varchar", length: 36 }) inventoryItemId!: string
+  @Column({ type: "decimal", precision: 10, scale: 3 }) quantityUsed!: string
+}
+
+@Entity("expense_categories")
+export class ExpenseCategoryEntity extends IdEntity {
+  @Column({ length: 100, unique: true }) name!: string
+  @Column({ default: true }) isActive!: boolean
+  @CreateDateColumn({ type: "datetime" }) createdAt!: Date
+}
+
+@Entity("expenses")
+export class ExpenseEntity extends TimestampedEntity {
+  @Column({ type: "varchar", length: 36 }) categoryId!: string
+  @Column({ length: 255 }) description!: string
+  @Column({ type: "decimal", precision: 10, scale: 2 }) amount!: string
+  @Column({ type: "date" }) expenseDate!: string
+  @Column({ type: "varchar", length: 100, nullable: true }) receiptReference!: string | null
+  @Column({ type: "text", nullable: true }) notes!: string | null
+  @Column({ type: "varchar", length: 36 }) recordedByStaffId!: string
+}
+
+@Entity("system_settings")
+export class SystemSettingEntity extends IdEntity {
+  @Column({ length: 150, default: "PRIME Roast & Grill" }) restaurantName!: string
+  @Column({ length: 100, default: "Main Branch - Manila" }) branchName!: string
+  @Column({ length: 50, default: "+63 917 123 4567" }) contactNumber!: string
+  @Column({ length: 100, default: "contact@primerestaurant.ph" }) email!: string
+  @Column({ type: "text" }) address!: string
+  @Column({ type: "varchar", length: 50, nullable: true }) tinNumber!: string | null
+  @Column({ type: "varchar", length: 50, nullable: true }) birMin!: string | null
+  @Column({ length: 10, default: "₱" }) currencySymbol!: string
+  @Column({ length: 10, default: "PHP" }) currencyCode!: string
+  @Column({ length: 50, default: "Asia/Manila" }) timezone!: string
+  @Column({ default: true }) vatEnabled!: boolean
+  @Column({ type: "decimal", precision: 5, scale: 2, default: 12 }) vatRate!: string
+  @Column({ default: true }) vatInclusive!: boolean
+  @Column({ default: false }) serviceChargeEnabled!: boolean
+  @Column({ type: "decimal", precision: 5, scale: 2, default: 5 }) serviceChargeRate!: string
+  @Column({ default: true }) seniorPwdDiscountEnabled!: boolean
+  @Column({ length: 20, default: "ORD-" }) orderNumberPrefix!: string
+  @Column({ default: false }) autoAcceptQrOrders!: boolean
+  @Column({ default: true }) requireTableSelection!: boolean
+  @Column({ default: true }) managerApprovalForVoids!: boolean
+  @Column({ type: "int", default: 10 }) lowStockThresholdAlert!: number
+  @Column({ type: "text", nullable: true }) receiptHeader!: string | null
+  @Column({ type: "text", nullable: true }) receiptFooter!: string | null
+  @Column({ default: true }) printReceiptAuto!: boolean
+  @Column({ default: true }) printKotAuto!: boolean
+  @Column({ default: true }) showWifiOnReceipt!: boolean
+  @Column({ type: "varchar", length: 100, nullable: true }) wifiSsid!: string | null
+  @Column({ type: "varchar", length: 100, nullable: true }) wifiPassword!: string | null
+  @Column({ length: 10, default: "08:00" }) openingTime!: string
+  @Column({ length: 10, default: "22:00" }) closingTime!: string
+  @Column({ default: true }) cashDrawerOpeningBalanceRequired!: boolean
+  @UpdateDateColumn({ type: "datetime" }) updatedAt!: Date
+}
+
 export const domainEntities = [
   AccountEntity, SessionEntity, VerificationTokenEntity,
   RoleEntity, PermissionEntity, RolePermissionEntity, CustomerEntity,
@@ -392,4 +528,10 @@ export const domainEntities = [
   PayrollDeductionEntity, EmployeeScheduleEntity, DiscountTypeEntity,
   OrderDiscountEntity, PromotionEntity, PromotionItemEntity, OrderPromotionEntity,
   PrinterEntity, AuditLogEntity,
+  InventoryCategoryEntity, InventoryItemEntity, InventoryStockLogEntity, MenuItemIngredientEntity,
+  ExpenseCategoryEntity, ExpenseEntity,
+  SystemSettingEntity,
+  AttendanceLogEntity,
 ]
+
+

@@ -1,7 +1,8 @@
 import dotenv from "dotenv"
 import { DataSource } from "typeorm"
 
-import { AppUserEntity, domainEntities } from "./entities"
+import { AppUserEntity, domainEntities } from "./entities/index.js"
+import { migrations } from "./migrations/index.js"
 
 dotenv.config({ path: ".env.local" })
 dotenv.config({ path: ".env" })
@@ -12,7 +13,7 @@ const dataSourceOptions = process.env.DATABASE_URL
       url: process.env.DATABASE_URL,
       connectorPackage: "mysql2" as const,
       synchronize: false,
-      migrations: ["lib/database/migrations/*.ts"],
+      migrations: migrations,
       entities: [AppUserEntity, ...domainEntities],
     }
   : {
@@ -24,7 +25,7 @@ const dataSourceOptions = process.env.DATABASE_URL
       database: process.env.DATABASE_NAME,
       connectorPackage: "mysql2" as const,
       synchronize: false,
-      migrations: ["lib/database/migrations/*.ts"],
+      migrations: migrations,
       entities: [AppUserEntity, ...domainEntities],
     }
 

@@ -20,16 +20,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ShoppingBag,
-  DollarSign,
+  CreditCard,
   QrCode,
-  FileX,
+  Table2,
+  CalendarCheck,
   PrinterIcon,
   AlertTriangle,
   Plus,
   UtensilsCrossed,
   Users,
   Tag,
-  TrendingUp,
 } from "lucide-react";
 
 const metrics = [
@@ -41,18 +41,25 @@ const metrics = [
     trendUp: true,
   },
   {
-    label: "Gross sales",
+    label: "Payments today",
     value: "₱32,450",
     trend: "+8% vs yesterday",
-    icon: DollarSign,
+    icon: CreditCard,
     trendUp: true,
   },
   {
-    label: "Net profit",
-    value: "₱18,900",
-    trend: "58% margin",
-    icon: TrendingUp,
+    label: "Occupied tables",
+    value: "6 / 12",
+    trend: "50% capacity",
+    icon: Table2,
     trendUp: true,
+  },
+  {
+    label: "Reservations today",
+    value: "9",
+    trend: "2 awaiting confirmation",
+    icon: CalendarCheck,
+    trendUp: false,
   },
   {
     label: "QR orders",
@@ -61,20 +68,19 @@ const metrics = [
     icon: QrCode,
     trendUp: null,
   },
-  {
-    label: "Voids today",
-    value: "3",
-    trend: "2 more than usual",
-    icon: FileX,
-    trendUp: false,
-  },
 ];
 
 const liveOrders = [
   { id: "Table 4", items: "3 items", source: "QR", status: "preparing" },
   { id: "Counter #22", items: "1 item", source: "Counter", status: "ready" },
-  { id: "Table 9", items: "5 items", source: "QR", status: "new" },
+  { id: "Table 9", items: "5 items", source: "QR", status: "pending" },
   { id: "Table 2", items: "2 items", source: "QR", status: "served" },
+];
+
+const reservations = [
+  { guest: "Santos family", time: "12:30 PM", guests: 4, status: "confirmed" },
+  { guest: "Mia Navarro", time: "1:00 PM", guests: 2, status: "pending" },
+  { guest: "Reyes birthday", time: "6:30 PM", guests: 8, status: "confirmed" },
 ];
 
 const topItems = [
@@ -93,13 +99,15 @@ const staffOnShift = [
 const alerts = [
   { icon: PrinterIcon, text: "Kitchen printer offline", tone: "danger" },
   { icon: AlertTriangle, text: "3 void requests pending", tone: "warning" },
+  { icon: CalendarCheck, text: "2 reservations need confirmation", tone: "warning" },
 ];
 
 const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
-  new: "default",
+  pending: "default",
   preparing: "secondary",
   ready: "outline",
   served: "outline",
+  confirmed: "outline",
 };
 
 export default function AdminDashboard() {
@@ -128,6 +136,14 @@ export default function AdminDashboard() {
               <DropdownMenuItem className="gap-2 py-2 cursor-pointer">
                 <UtensilsCrossed className="size-4" />
                 Add menu item
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2 py-2 cursor-pointer">
+                <CalendarCheck className="size-4" />
+                Add reservation
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2 py-2 cursor-pointer">
+                <QrCode className="size-4" />
+                Generate table QR
               </DropdownMenuItem>
               <DropdownMenuItem className="gap-2 py-2 cursor-pointer">
                 <PrinterIcon className="size-4" />
@@ -242,6 +258,45 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell className="py-2.5 text-right pr-4 sm:pr-6 text-xs text-muted-foreground font-semibold">
                         {item.sold} sold
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Reservations */}
+          <Card className="min-w-0 border bg-card shadow-xs">
+            <CardHeader className="flex flex-row items-center justify-between p-4 sm:p-6 pb-2 sm:pb-3">
+              <CardTitle className="text-base sm:text-lg font-bold">Today&apos;s reservations</CardTitle>
+              <Button variant="link" size="sm" className="h-auto p-0 text-amber-500 font-semibold text-xs sm:text-sm">
+                View all
+              </Button>
+            </CardHeader>
+            <CardContent className="w-full p-0 sm:px-2 pb-2">
+              <Table className="w-full table-fixed">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-2/3 text-xs font-semibold text-muted-foreground pl-4 sm:pl-6">Guest</TableHead>
+                    <TableHead className="w-1/3 text-right text-xs font-semibold text-muted-foreground pr-4 sm:pr-6">Time</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reservations.map((reservation) => (
+                    <TableRow key={`${reservation.guest}-${reservation.time}`}>
+                      <TableCell className="py-2.5 pl-4 sm:pl-6">
+                        <div className="text-xs sm:text-sm font-medium text-foreground">{reservation.guest}</div>
+                        <div className="text-[11px] text-muted-foreground">{reservation.guests} guests</div>
+                      </TableCell>
+                      <TableCell className="py-2.5 text-right pr-4 sm:pr-6">
+                        <div className="text-xs sm:text-sm font-medium text-foreground">{reservation.time}</div>
+                        <Badge
+                          variant={statusVariant[reservation.status]}
+                          className="mt-1 text-[10px] px-2 py-0.5 font-medium capitalize"
+                        >
+                          {reservation.status}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}

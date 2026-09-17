@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "migration": "typeorm-ts-node-esm",
     "migration:generate": "typeorm-ts-node-esm migration:generate lib/database/migrations/InitialSchema -d lib/database/data-source.ts",
+    "migration:generate:update": "typeorm-ts-node-esm migration:generate lib/database/migrations/UpdateSchema -d lib/database/data-source.ts",
     "migration:run": "typeorm-ts-node-esm migration:run -d lib/database/data-source.ts",
+    "migration:run:script": "node --loader ts-node/esm lib/database/run-migrations.ts",
     "migration:revert": "typeorm-ts-node-esm migration:revert -d lib/database/data-source.ts"
   },
   "dependencies": {

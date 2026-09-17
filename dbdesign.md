@@ -17,11 +17,14 @@
 | 6 | Reservations | `reservations` |
 | 7 | Payments | `payments` |
 | 8 | Loyalty Program | `loyalty_settings`, `loyalty_transactions`, `loyalty_rewards` |
-| 9 | Employee & Payroll | `employees`, `deduction_types`, `payroll_periods`, `payroll_records`, `payroll_deductions`, `employee_schedules` |
+| 9 | Employee & Payroll | `employees`, `deduction_types`, `payroll_periods`, `payroll_records`, `payroll_deductions`, `employee_schedules`, `attendance_logs` |
 | 10 | Discounts (Senior/PWD) | `discount_types`, `order_discounts` |
 | 11 | Promotions | `promotions`, `promotion_items`, `order_promotions` |
 | 12 | Devices | `printers` |
 | 13 | Audit | `audit_logs` |
+| 14 | Inventory | `inventory_categories`, `inventory_items`, `inventory_stock_logs`, `menu_item_ingredients` |
+| 15 | Expenses | `expense_categories`, `expenses` |
+| 16 | System Settings | `system_settings` |
 
 ---
 
@@ -256,6 +259,8 @@
 | user_id | UUID | FK → users.id, UNIQUE, NOT NULL |
 | employee_number | VARCHAR(20) | UNIQUE, NOT NULL |
 | position | VARCHAR(100) | NOT NULL |
+| department | VARCHAR(100) | NULLABLE (Kitchen, Service, Cashier, Management) |
+| rfid_card_uid | VARCHAR(50) | UNIQUE, NULLABLE (RFID badge card serial/UID) |
 | date_hired | DATE | NOT NULL |
 | date_terminated | DATE | NULLABLE |
 | employment_status | ENUM(`active`,`on_leave`,`terminated`) | DEFAULT `active` |
@@ -309,6 +314,23 @@
 | start_time | TIME | NOT NULL |
 | end_time | TIME | NOT NULL |
 | created_by_staff_id | UUID | FK → users.id, NOT NULL |
+| created_at | TIMESTAMP | DEFAULT NOW() |
+
+### 10.7 `attendance_logs` (RFID tap & time-clock tracking)
+| Column | Type | Constraints |
+|---|---|---|
+| id | UUID | PK |
+| employee_id | UUID | FK → employees.id, NOT NULL |
+| log_date | DATE | NOT NULL |
+| clock_in | TIMESTAMP | NOT NULL |
+| clock_out | TIMESTAMP | NULLABLE |
+| total_hours | DECIMAL(5,2) | NULLABLE |
+| late_minutes | INT | DEFAULT 0 |
+| overtime_hours | DECIMAL(5,2) | DEFAULT 0.00 |
+| status | ENUM(`on_time`,`late`,`overtime`,`incomplete`,`absent`) | DEFAULT `on_time` |
+| method | ENUM(`rfid`,`manual`,`pin`) | DEFAULT `rfid` |
+| rfid_card_uid_used | VARCHAR(50) | NULLABLE |
+| notes | TEXT | NULLABLE |
 | created_at | TIMESTAMP | DEFAULT NOW() |
 
 ---
@@ -404,7 +426,121 @@
 
 ---
 
-## 15. Entity Relationship Diagram (Text Form)
+## 15. Expenses Module
+
+### 15.1 `expense_categories`
+| Column | Type | Constraints |
+|---|---|---|
+| id | UUID | PK |
+| name | VARCHAR(100) | NOT NULL, UNIQUE |
+| is_active | BOOLEAN | DEFAULT true |
+| created_at | TIMESTAMP | DEFAULT NOW() |
+
+### 15.2 `expenses`
+| Column | Type | Constraints |
+|---|---|---|
+| id | UUID | PK |
+| category_id | UUID | FK → expense_categories.id, NOT NULL |
+| description | VARCHAR(255) | NOT NULL |
+| amount | DECIMAL(10,2) | NOT NULL |
+| expense_date | DATE | NOT NULL |
+| receipt_reference | VARCHAR(100) | NULLABLE |
+| notes | TEXT | NULLABLE |
+| recorded_by_staff_id | UUID | FK → users.id, NOT NULL |
+| created_at | TIMESTAMP | DEFAULT NOW() |
+| updated_at | TIMESTAMP | AUTO UPDATE |
+
+---
+
+## 16. Inventory Module
+
+### 15.1 `inventory_categories`
+| Column | Type | Constraints |
+|---|---|---|
+| id | UUID | PK |
+| name | VARCHAR(100) | NOT NULL |
+| created_at | TIMESTAMP | DEFAULT NOW() |
+
+### 15.2 `inventory_items`
+| Column | Type | Constraints |
+|---|---|---|
+| id | UUID | PK |
+| category_id | UUID | FK → inventory_categories.id, NULLABLE |
+| name | VARCHAR(150) | NOT NULL |
+| unit | VARCHAR(30) | NOT NULL (kg, g, L, mL, pcs, pack, box, bottle, tray, bag) |
+| stock_quantity | DECIMAL(10,3) | NOT NULL DEFAULT 0.000 |
+| reorder_threshold | DECIMAL(10,3) | NULLABLE (null = no alert) |
+| unit_cost | DECIMAL(10,2) | NULLABLE (last purchase price) |
+| supplier | VARCHAR(150) | NULLABLE |
+| is_active | BOOLEAN | DEFAULT true |
+| created_at | TIMESTAMP | DEFAULT NOW() |
+| updated_at | TIMESTAMP | AUTO UPDATE |
+
+### 15.3 `inventory_stock_logs` (immutable audit trail — never update, only insert)
+| Column | Type | Constraints |
+|---|---|---|
+| id | UUID | PK |
+| item_type | ENUM(`ingredient`,`menu_item`) | NOT NULL |
+| inventory_item_id | UUID | FK → inventory_items.id, NULLABLE |
+| menu_item_id | UUID | FK → menu_items.id, NULLABLE |
+| type | ENUM(`stock_in`,`adjustment`,`waste`,`consumed`) | NOT NULL |
+| quantity_change | DECIMAL(10,3) | NOT NULL (+/-) |
+| quantity_after | DECIMAL(10,3) | NULLABLE (snapshot; null if unlimited) |
+| note | VARCHAR(255) | NULLABLE |
+| performed_by_staff_id | UUID | FK → users.id, NOT NULL |
+| created_at | TIMESTAMP | DEFAULT NOW() |
+
+### 15.4 `menu_item_ingredients` (junction — links menu_items to inventory_items)
+| Column | Type | Constraints |
+|---|---|---|
+| menu_item_id | UUID | PK, FK → menu_items.id |
+| inventory_item_id | UUID | PK, FK → inventory_items.id |
+| quantity_used | DECIMAL(10,3) | NOT NULL (consumed per 1 serving) |
+
+---
+
+## 17. System Settings Module
+
+### 17.1 `system_settings` (single-row configuration)
+| Column | Type | Constraints |
+|---|---|---|
+| id | UUID | PK |
+| restaurant_name | VARCHAR(150) | NOT NULL DEFAULT 'PRIME Roast & Grill' |
+| branch_name | VARCHAR(100) | NOT NULL DEFAULT 'Main Branch - Manila' |
+| contact_number | VARCHAR(50) | NOT NULL DEFAULT '+63 917 123 4567' |
+| email | VARCHAR(100) | NOT NULL DEFAULT 'contact@primerestaurant.ph' |
+| address | TEXT | NOT NULL |
+| tin_number | VARCHAR(50) | NULLABLE (e.g. '123-456-789-000') |
+| bir_min | VARCHAR(50) | NULLABLE (Machine Identification Number) |
+| currency_symbol | VARCHAR(10) | NOT NULL DEFAULT '₱' |
+| currency_code | VARCHAR(10) | NOT NULL DEFAULT 'PHP' |
+| timezone | VARCHAR(50) | NOT NULL DEFAULT 'Asia/Manila' |
+| vat_enabled | BOOLEAN | NOT NULL DEFAULT true |
+| vat_rate | DECIMAL(5,2) | NOT NULL DEFAULT 12.00 |
+| vat_inclusive | BOOLEAN | NOT NULL DEFAULT true |
+| service_charge_enabled | BOOLEAN | NOT NULL DEFAULT false |
+| service_charge_rate | DECIMAL(5,2) | NOT NULL DEFAULT 5.00 |
+| senior_pwd_discount_enabled | BOOLEAN | NOT NULL DEFAULT true |
+| order_number_prefix | VARCHAR(20) | NOT NULL DEFAULT 'ORD-' |
+| auto_accept_qr_orders | BOOLEAN | NOT NULL DEFAULT false |
+| require_table_selection | BOOLEAN | NOT NULL DEFAULT true |
+| manager_approval_for_voids | BOOLEAN | NOT NULL DEFAULT true |
+| low_stock_threshold_alert | INT | NOT NULL DEFAULT 10 |
+| receipt_header | TEXT | NULLABLE |
+| receipt_footer | TEXT | NULLABLE |
+| print_receipt_auto | BOOLEAN | NOT NULL DEFAULT true |
+| print_kot_auto | BOOLEAN | NOT NULL DEFAULT true |
+| show_wifi_on_receipt | BOOLEAN | NOT NULL DEFAULT true |
+| wifi_ssid | VARCHAR(100) | NULLABLE |
+| wifi_password | VARCHAR(100) | NULLABLE |
+| opening_time | VARCHAR(10) | NOT NULL DEFAULT '08:00' |
+| closing_time | VARCHAR(10) | NOT NULL DEFAULT '22:00' |
+| cash_drawer_opening_balance_required | BOOLEAN | NOT NULL DEFAULT true |
+| updated_at | TIMESTAMP | AUTO UPDATE |
+
+---
+
+## 18. Entity Relationship Diagram (Text Form)
 
 ```
 roles ──1:N── users ──N:1── roles
@@ -442,11 +578,20 @@ users (staff) ──1:N── promotions (created_by)
 users (staff) ──1:N── order_discounts (applied_by)
 
 users ──1:N── audit_logs
+
+expense_categories ──1:N── expenses
+users (staff) ──1:N── expenses (recorded_by)
+
+inventory_categories ──1:N── inventory_items
+inventory_items ──1:N── inventory_stock_logs
+menu_items ──1:N── inventory_stock_logs
+menu_items ──M:N── inventory_items  (via menu_item_ingredients)
+users (staff) ──1:N── inventory_stock_logs (performed_by)
 ```
 
 ---
 
-## 16. Recommended Indexes (Performance)
+## 19. Recommended Indexes (Performance)
 
 | Table | Column(s) | Reason |
 |---|---|---|
@@ -462,10 +607,17 @@ users ──1:N── audit_logs
 | audit_logs | entity_type, entity_id | Mabilis makita ang history ng specific record |
 | users | email | Unique + mabilis na login lookup |
 | customers | email | Unique + mabilis na login lookup |
+| inventory_items | category_id, is_active | Fast category listing & active inventory filtering |
+| inventory_stock_logs | inventory_item_id, created_at | Fast stock ledger & history per ingredient |
+| inventory_stock_logs | menu_item_id, created_at | Fast stock ledger & history per menu item |
+| menu_item_ingredients | inventory_item_id | Fast recipe lookup for ingredient deduction |
+| menu_item_ingredients | menu_item_id | Fast recipe lookup per menu item |
+| expenses | category_id, expense_date | Fast category filtering and date-range reporting |
+| expenses | recorded_by_staff_id | Fast lookup of expenses per staff member |
 
 ---
 
-## 17. Key Design Principles Applied
+## 20. Key Design Principles Applied
 
 1. **UUID Primary Keys** — hindi nag-eexpose ng sequential IDs, bagay sa distributed/monorepo setup.
 2. **Snapshot Pricing** — `order_items.unit_price` ay hiwalay sa `menu_items.price` para hindi maapektuhan ang historical orders kapag nagbago ang presyo.
@@ -473,5 +625,5 @@ users ──1:N── audit_logs
 4. **Dynamic RBAC** — `roles`/`permissions`/`role_permissions` ay configurable sa UI, hindi hardcoded enum.
 5. **Hiwalay na `users` at `customers`** — magkaiba ang lifecycle, magkaiba ang authentication flow at data needs.
 6. **Hiwalay na `employees` mula sa `users`** — hindi lahat ng may access sa admin app ay may payroll record.
-7. **Audit Trail sa Sensitive Operations** — `order_voids`, `order_discounts`, at `audit_logs` ay nagre-record kung sino at kailan ginawa ang aksyon, para sa BIR compliance (Senior/PWD) at internal accountability.
-8. **Junction Tables para sa Many-to-Many** — `role_permissions`, `promotion_items` ay tamang paraan ng pag-model ng M:N relationships sa relational database.
+7. **Audit Trail sa Sensitive Operations** — `order_voids`, `order_discounts`, `inventory_stock_logs`, at `audit_logs` ay nagre-record kung sino at kailan ginawa ang aksyon, para sa BIR compliance (Senior/PWD) at internal accountability.
+8. **Junction Tables para sa Many-to-Many** — `role_permissions`, `promotion_items`, at `menu_item_ingredients` ay tamang paraan ng pag-model ng M:N relationships sa relational database.

@@ -10,10 +10,14 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/menu": "Menu Management",
   "/admin/orders": "Orders",
   "/admin/inventory": "Inventory",
-  "/admin/employees": "Employees",
+  "/admin/employees": "Employee Management",
+  "/admin/rbac": "Roles & Access Control",
   "/admin/promotions": "Promotions",
-  "/admin/reports": "Reports",
-  "/admin/settings": "Settings",
+  "/admin/settings": "System & POS Settings",
+  "/admin/voids": "Void & Cancellation Logs",
+  "/admin/printer": "Printer Settings",
+  "/admin/printers": "Printer Settings",
+  "/admin/reports": "Reports & Analytics",
 }
 
 // Fallback for routes not yet in the map above — turns "/admin/some-page"
