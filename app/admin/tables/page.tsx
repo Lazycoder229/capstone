@@ -51,6 +51,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Toaster } from "@/components/ui/sonner"
+import { QRCodeSVG } from "qrcode.react"
+import { useEffect } from "react"
+import {
+  createTableAction,
+  deleteTableAction,
+  fetchTables,
+  updateTableAction,
+} from "@/app/actions/tables"
 
 // ---------------------------------------------------------------------------
 // Types — mirrors `restaurant_tables` (id, table_number, capacity,
@@ -75,26 +83,11 @@ const emptyForm: TableFormValues = {
   status: "available",
 }
 
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
 const ORDER_BASE_URL = "https://order.primepos.app/t"
 
 function buildQrUrl(tableId: string) {
   return `${ORDER_BASE_URL}/${tableId}`
 }
-
-const MOCK_TABLES: RestaurantTable[] = [
-  { id: "table-1", tableNumber: "Table 1", capacity: 2, qrCodeUrl: buildQrUrl("table-1"), status: "available" },
-  { id: "table-2", tableNumber: "Table 2", capacity: 4, qrCodeUrl: buildQrUrl("table-2"), status: "occupied" },
-  { id: "table-4", tableNumber: "Table 4", capacity: 4, qrCodeUrl: buildQrUrl("table-4"), status: "occupied" },
-  { id: "table-6", tableNumber: "Table 6", capacity: 6, qrCodeUrl: buildQrUrl("table-6"), status: "reserved" },
-  { id: "table-7", tableNumber: "Table 7", capacity: 2, qrCodeUrl: buildQrUrl("table-7"), status: "available" },
-  { id: "table-9", tableNumber: "Table 9", capacity: 4, qrCodeUrl: buildQrUrl("table-9"), status: "occupied" },
-  { id: "table-10", tableNumber: "Table 10", capacity: 8, qrCodeUrl: buildQrUrl("table-10"), status: "available" },
-  { id: "table-12", tableNumber: "Table 12", capacity: 2, qrCodeUrl: buildQrUrl("table-12"), status: "available" },
-]
 
 const statusLabels: Record<TableStatus, string> = {
   available: "Available",
@@ -115,48 +108,17 @@ const statusTabs: { value: "all" | TableStatus; label: string }[] = [
   { value: "reserved", label: "Reserved" },
 ]
 
-// ---------------------------------------------------------------------------
-// Decorative QR preview — deterministic pattern derived from the table id so
-// each card gets a distinct-looking code. Swap for a real QR-generation call
-// (e.g. against qrCodeUrl) once the backend endpoint exists.
-// ---------------------------------------------------------------------------
+function getTableQrUrl(table: RestaurantTable) {
+  const qrPath = table.qrCodeUrl || `/t/${table.id}`
+  if (/^https?:\/\//i.test(qrPath)) return qrPath
+  if (typeof window === "undefined") return qrPath
+  return new URL(qrPath, window.location.origin).toString()
+}
 
-function QrPreview({ seed, className }: { seed: string; className?: string }) {
-  const cells = useMemo(() => {
-    let hash = 0
-    for (let i = 0; i < seed.length; i++) {
-      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
-    }
-    const size = 7
-    const grid: boolean[] = []
-    for (let i = 0; i < size * size; i++) {
-      hash = (hash * 1103515245 + 12345) >>> 0
-      grid.push(((hash >> 16) & 1) === 1)
-    }
-    return { size, grid }
-  }, [seed])
-
-  const finderPositions = [
-    [0, 0],
-    [0, cells.size - 3],
-    [cells.size - 3, 0],
-  ]
-
-  function isFinder(row: number, col: number) {
-    return finderPositions.some(([fr, fc]) => row >= fr && row < fr + 3 && col >= fc && col < fc + 3)
-  }
-
+function QrPreview({ value, className }: { value: string; className?: string }) {
   return (
-    <div
-      className={`grid aspect-square gap-[2px] rounded-md bg-foreground p-2 ${className ?? ""}`}
-      style={{ gridTemplateColumns: `repeat(${cells.size}, minmax(0, 1fr))` }}
-    >
-      {cells.grid.map((filled, index) => {
-        const row = Math.floor(index / cells.size)
-        const col = index % cells.size
-        const on = isFinder(row, col) || filled
-        return <div key={index} className={`rounded-[1px] ${on ? "bg-background" : "bg-foreground"}`} />
-      })}
+    <div className={`aspect-square rounded-md bg-white p-2 ${className ?? ""}`}>
+      <QRCodeSVG value={value} width="100%" height="100%" level="M" includeMargin />
     </div>
   )
 }
@@ -170,7 +132,14 @@ function formatCapacity(capacity: number) {
 // ---------------------------------------------------------------------------
 
 export default function TablesPage() {
-  const [tables, setTables] = useState<RestaurantTable[]>(MOCK_TABLES)
+  const [tables, setTables] = useState<RestaurantTable[]>([])
+
+  useEffect(() => {
+    fetchTables().then((res) => {
+      if (res.success && res.data.length > 0) setTables(res.data as RestaurantTable[])
+    })
+  }, [])
+
   const [activeTab, setActiveTab] = useState<"all" | TableStatus>("all")
   const [search, setSearch] = useState("")
 
@@ -211,27 +180,54 @@ export default function TablesPage() {
     setSheetOpen(true)
   }
 
-  function saveTable() {
+  async function saveTable() {
     if (!form.tableNumber.trim()) {
       toast.error("Table number is required")
       return
     }
 
     if (editingId) {
+      const res = await updateTableAction({
+        id: editingId,
+        tableNumber: form.tableNumber,
+        capacity: form.capacity,
+        status: form.status,
+      })
+
+      if (!res.success) {
+        toast.error("Failed to update table", { description: res.error })
+        return
+      }
+
       setTables((current) =>
         current.map((table) => (table.id === editingId ? { ...table, ...form } : table)),
       )
       toast.success("Table updated", { description: `${form.tableNumber} was saved.` })
     } else {
-      const id = crypto.randomUUID()
-      const newTable: RestaurantTable = { id, ...form, qrCodeUrl: buildQrUrl(id) }
-      setTables((current) => [...current, newTable])
+      const res = await createTableAction({
+        tableNumber: form.tableNumber,
+        capacity: form.capacity,
+        status: form.status,
+      })
+
+      if (!res.success) {
+        toast.error("Failed to create table", { description: res.error })
+        return
+      }
+
+      setTables((current) => [...current, res.data.table as RestaurantTable])
       toast.success("Table added", { description: `${form.tableNumber} is ready — QR code generated.` })
     }
     setSheetOpen(false)
   }
 
-  function deleteTable(table: RestaurantTable) {
+  async function deleteTable(table: RestaurantTable) {
+    const res = await deleteTableAction(table.id)
+    if (!res.success) {
+      toast.error("Delete failed", { description: res.error })
+      return
+    }
+
     setTables((current) => current.filter((item) => item.id !== table.id))
     toast.success("Table removed", { description: `${table.tableNumber} and its QR code were deleted.` })
   }
@@ -431,7 +427,7 @@ export default function TablesPage() {
                     className="group relative mx-auto w-28 transition hover:opacity-90"
                     aria-label={`View QR code for ${table.tableNumber}`}
                   >
-                    <QrPreview seed={table.id} />
+                    <QrPreview value={getTableQrUrl(table)} />
                     <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/0 opacity-0 transition group-hover:bg-background/70 group-hover:opacity-100">
                       <QrCode className="size-5 text-foreground" />
                     </div>
@@ -497,10 +493,10 @@ export default function TablesPage() {
                 <DialogTitle>{qrPreviewTable.tableNumber} — QR code</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col items-center gap-4 py-2">
-                <QrPreview seed={qrPreviewTable.id} className="w-48" />
-                <p className="break-all text-center text-xs text-muted-foreground">{qrPreviewTable.qrCodeUrl}</p>
+                <QrPreview value={getTableQrUrl(qrPreviewTable)} className="w-48" />
+                <p className="break-all text-center text-xs text-muted-foreground">{getTableQrUrl(qrPreviewTable)}</p>
                 <div className="grid w-full grid-cols-2 gap-2">
-                  <Button variant="outline" onClick={() => copyLink(qrPreviewTable.qrCodeUrl)} className="border-amber-500 text-amber-700 hover:bg-amber-50">
+                  <Button variant="outline" onClick={() => copyLink(getTableQrUrl(qrPreviewTable))} className="border-amber-500 text-amber-700 hover:bg-amber-50">
                     <Copy className="mr-1.5 size-4" />
                     Copy link
                   </Button>

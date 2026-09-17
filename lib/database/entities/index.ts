@@ -191,6 +191,7 @@ export class OrderVoidEntity extends IdEntity {
   @Column({ length: 36 }) requestedByStaffId!: string
   @Column({ type: "varchar", length: 36, nullable: true }) approvedByStaffId!: string | null
   @Column({ type: "text" }) reason!: string
+  @Column({ type: "text", nullable: true }) resolutionNotes!: string | null
   @Column({ type: "enum", enum: VoidStatus, default: VoidStatus.PENDING }) status!: VoidStatus
   @CreateDateColumn({ type: "datetime" }) requestedAt!: Date
   @Column({ type: "datetime", nullable: true }) resolvedAt!: Date | null

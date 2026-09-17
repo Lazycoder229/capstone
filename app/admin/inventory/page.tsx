@@ -59,6 +59,13 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Toaster } from "@/components/ui/sonner"
+import {
+  adjustStockAction,
+  createInventoryItemAction,
+  deleteInventoryItemAction,
+  fetchInventory,
+  updateInventoryItemAction,
+} from "@/app/actions/inventory"
 
 // ---------------------------------------------------------------------------
 // Types — mirrors the new inventory DB tables
@@ -133,233 +140,9 @@ interface MenuStockUpdateForm {
 // Reference data
 // ---------------------------------------------------------------------------
 
-const staff = [
-  { id: "staff-admin", label: "Admin User" },
-  { id: "staff-cashier", label: "Cashier" },
-]
+const staff: { id: string; label: string }[] = []
 
 const UNITS = ["kg", "g", "L", "mL", "pcs", "pack", "box", "bottle", "tray", "bag"]
-
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-const MOCK_CATEGORIES: InventoryCategory[] = [
-  { id: "cat-poultry", name: "Poultry" },
-  { id: "cat-dry", name: "Dry Goods" },
-  { id: "cat-beverages", name: "Beverages" },
-  { id: "cat-produce", name: "Produce" },
-  { id: "cat-packaging", name: "Packaging" },
-]
-
-const MOCK_INVENTORY: InventoryItem[] = [
-  {
-    id: "inv-001",
-    categoryId: "cat-poultry",
-    categoryName: "Poultry",
-    name: "Whole Chicken",
-    unit: "kg",
-    stockQuantity: 18.5,
-    reorderThreshold: 10,
-    unitCost: 185,
-    supplier: "Bounty Fresh",
-    isActive: true,
-  },
-  {
-    id: "inv-002",
-    categoryId: "cat-dry",
-    categoryName: "Dry Goods",
-    name: "Jasmine Rice",
-    unit: "kg",
-    stockQuantity: 4.2,
-    reorderThreshold: 15,
-    unitCost: 58,
-    supplier: "Doña Maria Rice",
-    isActive: true,
-  },
-  {
-    id: "inv-003",
-    categoryId: "cat-beverages",
-    categoryName: "Beverages",
-    name: "Iced Tea Premix",
-    unit: "pack",
-    stockQuantity: 12,
-    reorderThreshold: 5,
-    unitCost: 95,
-    supplier: "Lipton PH",
-    isActive: true,
-  },
-  {
-    id: "inv-004",
-    categoryId: "cat-produce",
-    categoryName: "Produce",
-    name: "Lemongrass",
-    unit: "kg",
-    stockQuantity: 0.8,
-    reorderThreshold: 2,
-    unitCost: 40,
-    supplier: "Local market",
-    isActive: true,
-  },
-  {
-    id: "inv-005",
-    categoryId: "cat-dry",
-    categoryName: "Dry Goods",
-    name: "Lumpia Wrapper",
-    unit: "pack",
-    stockQuantity: 22,
-    reorderThreshold: 10,
-    unitCost: 35,
-    supplier: "Harvest Fresh",
-    isActive: true,
-  },
-  {
-    id: "inv-006",
-    categoryId: "cat-packaging",
-    categoryName: "Packaging",
-    name: "Takeout Box (Large)",
-    unit: "pcs",
-    stockQuantity: 340,
-    reorderThreshold: 100,
-    unitCost: 5,
-    supplier: "PaperPack PH",
-    isActive: true,
-  },
-  {
-    id: "inv-007",
-    categoryId: "cat-beverages",
-    categoryName: "Beverages",
-    name: "Mineral Water (500mL)",
-    unit: "bottle",
-    stockQuantity: 3,
-    reorderThreshold: 24,
-    unitCost: 12,
-    supplier: "Wilkins",
-    isActive: true,
-  },
-  {
-    id: "inv-008",
-    categoryId: "cat-dry",
-    categoryName: "Dry Goods",
-    name: "Cooking Oil",
-    unit: "L",
-    stockQuantity: 8,
-    reorderThreshold: 5,
-    unitCost: 130,
-    supplier: "Baguio Oil",
-    isActive: false,
-  },
-]
-
-const MOCK_LOGS: StockLog[] = [
-  {
-    id: "log-001",
-    itemType: "ingredient",
-    inventoryItemId: "inv-001",
-    itemName: "Whole Chicken",
-    unit: "kg",
-    type: "stock_in",
-    quantityChange: 20,
-    quantityAfter: 18.5,
-    note: "Weekly delivery from Bounty Fresh",
-    performedByStaffId: "staff-admin",
-    staffName: "Admin User",
-    createdAt: "2026-09-17T08:00:00",
-  },
-  {
-    id: "log-006",
-    itemType: "menu_item",
-    menuItemId: "item-whole",
-    itemName: "Whole Litson Manok",
-    unit: "pcs",
-    type: "stock_in",
-    quantityChange: 14,
-    quantityAfter: 14,
-    note: "Fresh morning batch roasted",
-    performedByStaffId: "staff-admin",
-    staffName: "Admin User",
-    createdAt: "2026-09-17T07:45:00",
-  },
-  {
-    id: "log-002",
-    itemType: "ingredient",
-    inventoryItemId: "inv-002",
-    itemName: "Jasmine Rice",
-    unit: "kg",
-    type: "consumed",
-    quantityChange: -5.8,
-    quantityAfter: 4.2,
-    note: null,
-    performedByStaffId: "staff-admin",
-    staffName: "Admin User",
-    createdAt: "2026-09-17T07:30:00",
-  },
-  {
-    id: "log-007",
-    itemType: "menu_item",
-    menuItemId: "item-tea",
-    itemName: "Iced Tea",
-    unit: "pcs",
-    type: "stock_in",
-    quantityChange: 60,
-    quantityAfter: 60,
-    note: "Prepared 2 dispensers",
-    performedByStaffId: "staff-cashier",
-    staffName: "Cashier",
-    createdAt: "2026-09-17T07:15:00",
-  },
-  {
-    id: "log-003",
-    itemType: "ingredient",
-    inventoryItemId: "inv-007",
-    itemName: "Mineral Water (500mL)",
-    unit: "bottle",
-    type: "waste",
-    quantityChange: -5,
-    quantityAfter: 3,
-    note: "Damaged bottles from delivery",
-    performedByStaffId: "staff-cashier",
-    staffName: "Cashier",
-    createdAt: "2026-09-16T15:20:00",
-  },
-  {
-    id: "log-004",
-    itemType: "ingredient",
-    inventoryItemId: "inv-004",
-    itemName: "Lemongrass",
-    unit: "kg",
-    type: "adjustment",
-    quantityChange: -0.5,
-    quantityAfter: 0.8,
-    note: "Physical count correction",
-    performedByStaffId: "staff-admin",
-    staffName: "Admin User",
-    createdAt: "2026-09-16T09:00:00",
-  },
-  {
-    id: "log-005",
-    itemType: "ingredient",
-    inventoryItemId: "inv-003",
-    itemName: "Iced Tea Premix",
-    unit: "pack",
-    type: "stock_in",
-    quantityChange: 10,
-    quantityAfter: 12,
-    note: null,
-    performedByStaffId: "staff-cashier",
-    staffName: "Cashier",
-    createdAt: "2026-09-15T14:00:00",
-  },
-]
-
-const MOCK_MENU_STOCK: MenuStockItem[] = [
-  { id: "item-whole", name: "Whole Litson Manok", category: "Litson Manok", price: 420, stockQuantity: 14, isAvailable: true },
-  { id: "item-half", name: "Half Litson Manok", category: "Litson Manok", price: 230, stockQuantity: 8, isAvailable: true },
-  { id: "item-rice", name: "Java Rice", category: "Sides", price: 45, stockQuantity: null, isAvailable: true },
-  { id: "item-tea", name: "Iced Tea", category: "Beverages", price: 35, stockQuantity: 60, isAvailable: true },
-  { id: "item-lumpia", name: "Lumpia", category: "Sides", price: 75, stockQuantity: 3, isAvailable: true },
-  { id: "item-halo", name: "Halo-halo", category: "Desserts", price: 85, stockQuantity: null, isAvailable: true },
-]
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -476,7 +259,7 @@ const emptyAdjustForm: StockAdjustForm = {
   type: "stock_in",
   quantityChange: 0,
   note: "",
-  performedByStaffId: "staff-admin",
+  performedByStaffId: "",
 }
 
 const emptyMenuStockForm: MenuStockUpdateForm = {
@@ -485,7 +268,7 @@ const emptyMenuStockForm: MenuStockUpdateForm = {
   quantityChange: 0,
   exactQuantity: 0,
   type: "stock_in",
-  performedByStaffId: "staff-admin",
+  performedByStaffId: "",
   note: "",
 }
 
@@ -499,7 +282,8 @@ export default function InventoryPage() {
   const [pageTab, setPageTab] = useState("ingredients")
 
   // ---- Ingredient state ----
-  const [items, setItems] = useState<InventoryItem[]>(MOCK_INVENTORY)
+  const [categories, setCategories] = useState<InventoryCategory[]>([])
+  const [items, setItems] = useState<InventoryItem[]>([])
   const [ingredientTab, setIngredientTab] = useState("all")
   const [ingredientSearch, setIngredientSearch] = useState("")
   const [ingredientPage, setIngredientPage] = useState(1)
@@ -514,7 +298,7 @@ export default function InventoryPage() {
   const [adjustForm, setAdjustForm] = useState<StockAdjustForm>(emptyAdjustForm)
 
   // ---- Menu stock state ----
-  const [menuItems, setMenuItems] = useState<MenuStockItem[]>(MOCK_MENU_STOCK)
+  const [menuItems, setMenuItems] = useState<MenuStockItem[]>([])
   const [menuSearch, setMenuSearch] = useState("")
   const [menuTab, setMenuTab] = useState("all")
   const [menuStockSheetOpen, setMenuStockSheetOpen] = useState(false)
@@ -522,7 +306,7 @@ export default function InventoryPage() {
   const [menuStockForm, setMenuStockForm] = useState<MenuStockUpdateForm>(emptyMenuStockForm)
 
   // ---- Stock logs state ----
-  const [logs, setLogs] = useState<StockLog[]>(MOCK_LOGS)
+  const [logs, setLogs] = useState<StockLog[]>([])
   const [logSearch, setLogSearch] = useState("")
   const [logSourceTab, setLogSourceTab] = useState("all")
   const [logTypeFilter, setLogTypeFilter] = useState("all")
@@ -530,6 +314,22 @@ export default function InventoryPage() {
 
   useEffect(() => { setIngredientPage(1) }, [ingredientTab, ingredientSearch])
   useEffect(() => { setLogPage(1) }, [logSearch, logSourceTab, logTypeFilter])
+
+  useEffect(() => {
+    void loadInventory()
+  }, [])
+
+  async function loadInventory() {
+    const result = await fetchInventory()
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    setCategories(result.data.categories)
+    setItems(result.data.items)
+    setLogs(result.data.logs)
+    setMenuItems(result.data.menuStock)
+  }
 
   // ---- Counts ----
   const counts = useMemo(() => ({
@@ -636,40 +436,48 @@ export default function InventoryPage() {
     setItemSheetOpen(true)
   }
 
-  function saveItem() {
+  async function saveItem() {
     if (!itemForm.name.trim()) {
       toast.error("Item name is required")
       return
     }
-    const categoryName =
-      MOCK_CATEGORIES.find((c) => c.id === itemForm.categoryId)?.name ?? null
-
-    if (editingItemId) {
-      setItems((current) =>
-        current.map((i) =>
-          i.id === editingItemId ? { ...i, ...itemForm, categoryName } : i,
-        ),
-      )
-      setSelectedItem((current) =>
-        current?.id === editingItemId
-          ? { ...current, ...itemForm, categoryName }
-          : current,
-      )
-      toast.success("Item updated", { description: `${itemForm.name} was saved.` })
-    } else {
-      const newItem: InventoryItem = {
-        id: crypto.randomUUID(),
-        ...itemForm,
-        categoryName,
-      }
-      setItems((current) => [newItem, ...current])
-      toast.success("Item added", { description: `${itemForm.name} is now tracked.` })
+    const result = editingItemId
+      ? await updateInventoryItemAction({
+          id: editingItemId,
+          categoryId: itemForm.categoryId ?? undefined,
+          name: itemForm.name,
+          unit: itemForm.unit,
+          reorderThreshold: itemForm.reorderThreshold == null ? undefined : String(itemForm.reorderThreshold),
+          unitCost: itemForm.unitCost ?? undefined,
+          supplier: itemForm.supplier ?? undefined,
+          isActive: itemForm.isActive,
+        })
+      : await createInventoryItemAction({
+          categoryId: itemForm.categoryId ?? undefined,
+          name: itemForm.name,
+          unit: itemForm.unit,
+          stockQuantity: String(itemForm.stockQuantity),
+          reorderThreshold: itemForm.reorderThreshold == null ? undefined : String(itemForm.reorderThreshold),
+          unitCost: itemForm.unitCost ?? undefined,
+          supplier: itemForm.supplier ?? undefined,
+          isActive: itemForm.isActive,
+        })
+    if (!result.success) {
+      toast.error(result.error)
+      return
     }
+    await loadInventory()
+    toast.success(editingItemId ? "Item updated" : "Item added", { description: `${itemForm.name} was saved.` })
     setItemSheetOpen(false)
   }
 
-  function deleteItem(item: InventoryItem) {
-    setItems((current) => current.filter((i) => i.id !== item.id))
+  async function deleteItem(item: InventoryItem) {
+    const result = await deleteInventoryItemAction(item.id)
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    await loadInventory()
     setSelectedItem(null)
     toast.success("Item removed", { description: `${item.name} was deleted.` })
   }
@@ -681,7 +489,7 @@ export default function InventoryPage() {
     setAdjustSheetOpen(true)
   }
 
-  function saveAdjustment() {
+  async function saveAdjustment() {
     if (!adjustingItem) return
     if (adjustForm.quantityChange === 0) {
       toast.error("Quantity change cannot be zero")
@@ -695,37 +503,22 @@ export default function InventoryPage() {
         ? adjustForm.quantityChange
         : -Math.abs(adjustForm.quantityChange)
 
-    const newQty = Math.max(0, adjustingItem.stockQuantity + change)
-    const staffName =
-      staff.find((s) => s.id === adjustForm.performedByStaffId)?.label ?? "Staff"
-
-    setItems((current) =>
-      current.map((i) =>
-        i.id === adjustingItem.id ? { ...i, stockQuantity: newQty } : i,
-      ),
-    )
-    setSelectedItem((current) =>
-      current?.id === adjustingItem.id ? { ...current, stockQuantity: newQty } : current,
-    )
-
-    const newLog: StockLog = {
-      id: crypto.randomUUID(),
+    const result = await adjustStockAction({
       itemType: "ingredient",
       inventoryItemId: adjustingItem.id,
-      itemName: adjustingItem.name,
-      unit: adjustingItem.unit,
       type: adjustForm.type,
-      quantityChange: change,
-      quantityAfter: newQty,
-      note: adjustForm.note || null,
+      quantityChange: String(change),
+      note: adjustForm.note || undefined,
       performedByStaffId: adjustForm.performedByStaffId,
-      staffName,
-      createdAt: new Date().toISOString(),
+    })
+    if (!result.success) {
+      toast.error(result.error)
+      return
     }
-    setLogs((current) => [newLog, ...current])
+    await loadInventory()
 
     toast.success("Stock updated", {
-      description: `${adjustingItem.name}: ${change >= 0 ? "+" : ""}${change} ${adjustingItem.unit} → ${newQty} ${adjustingItem.unit}`,
+      description: `${adjustingItem.name}: ${change >= 0 ? "+" : ""}${change} ${adjustingItem.unit}`,
     })
     setAdjustSheetOpen(false)
   }
@@ -740,13 +533,13 @@ export default function InventoryPage() {
       quantityChange: 0,
       exactQuantity: item.stockQuantity ?? 0,
       type: "stock_in",
-      performedByStaffId: "staff-admin",
+      performedByStaffId: "",
       note: "",
     })
     setMenuStockSheetOpen(true)
   }
 
-  function saveMenuStockUpdate() {
+  async function saveMenuStockUpdate() {
     if (!updatingMenuItem) return
 
     let newQty: number | null = null
@@ -776,12 +569,6 @@ export default function InventoryPage() {
       newQty = Math.max(0, (prevQty ?? 0) + delta)
     }
 
-    const staffName = staff.find((s) => s.id === menuStockForm.performedByStaffId)?.label ?? "Staff"
-
-    setMenuItems((current) =>
-      current.map((m) => (m.id === updatingMenuItem.id ? { ...m, stockQuantity: newQty } : m)),
-    )
-
     const logType: StockLogType =
       menuStockForm.isUnlimited
         ? "adjustment"
@@ -799,21 +586,23 @@ export default function InventoryPage() {
         ? `Physical inventory count set to ${newQty} pcs`
         : null)
 
-    const newLog: StockLog = {
-      id: crypto.randomUUID(),
+    if (newQty == null) {
+      toast.error("Unlimited menu stock is not supported by the stock action")
+      return
+    }
+    const result = await adjustStockAction({
       itemType: "menu_item",
       menuItemId: updatingMenuItem.id,
-      itemName: updatingMenuItem.name,
-      unit: "pcs",
       type: logType,
-      quantityChange: diff,
-      quantityAfter: newQty,
-      note,
+      quantityChange: String(diff),
+      note: note ?? undefined,
       performedByStaffId: menuStockForm.performedByStaffId,
-      staffName,
-      createdAt: new Date().toISOString(),
+    })
+    if (!result.success) {
+      toast.error(result.error)
+      return
     }
-    setLogs((current) => [newLog, ...current])
+    await loadInventory()
 
     toast.success("Menu stock updated", {
       description: `${updatingMenuItem.name}: ${
@@ -1111,7 +900,7 @@ export default function InventoryPage() {
                       </button>
                     )}
                   </div>
-                  <Select value={logTypeFilter} onValueChange={setLogTypeFilter}>
+                  <Select value={logTypeFilter} onValueChange={(value) => setLogTypeFilter(value ?? "all")}>
                     <SelectTrigger className="h-10 w-full sm:w-40 text-xs">
                       <SelectValue placeholder="All actions" />
                     </SelectTrigger>
@@ -1239,7 +1028,7 @@ export default function InventoryPage() {
                   <SelectTrigger className="h-11 w-full sm:h-10"><SelectValue placeholder="None" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Uncategorized</SelectItem>
-                    {MOCK_CATEGORIES.map((cat) => (
+                    {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -1248,7 +1037,7 @@ export default function InventoryPage() {
               <div className="grid gap-1.5">
                 <Label>Unit</Label>
                 <Select value={itemForm.unit}
-                  onValueChange={(v) => setItemForm((c) => ({ ...c, unit: v }))}>
+                  onValueChange={(v) => setItemForm((c) => ({ ...c, unit: v ?? c.unit }))}>
                   <SelectTrigger className="h-11 w-full sm:h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
@@ -1467,7 +1256,7 @@ export default function InventoryPage() {
             <div className="grid gap-1.5">
               <Label>Staff</Label>
               <Select value={adjustForm.performedByStaffId}
-                onValueChange={(v) => setAdjustForm((c) => ({ ...c, performedByStaffId: v }))}>
+                onValueChange={(v) => setAdjustForm((c) => ({ ...c, performedByStaffId: v ?? c.performedByStaffId }))}>
                 <SelectTrigger className="h-11 w-full sm:h-10"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {staff.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
@@ -1793,7 +1582,7 @@ export default function InventoryPage() {
                   <Select
                     value={menuStockForm.performedByStaffId}
                     onValueChange={(v) =>
-                      setMenuStockForm((f) => ({ ...f, performedByStaffId: v }))
+                      setMenuStockForm((f) => ({ ...f, performedByStaffId: v ?? f.performedByStaffId }))
                     }
                   >
                     <SelectTrigger className="h-10 text-sm">

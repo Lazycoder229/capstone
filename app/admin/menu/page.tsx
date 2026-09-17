@@ -2,7 +2,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Plus, Pencil, Trash2, Search, ImageOff, Package, Loader2, X } from "lucide-react"
+import { Plus, Pencil, Trash2, Search, ImageOff, Package, Loader2, X, Settings2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -42,6 +42,16 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
 import { Toaster } from "@/components/ui/sonner"
+import {
+  createCategoryAction,
+  createMenuItemAction,
+  deleteCategoryAction,
+  deleteMenuItemAction,
+  fetchCategories,
+  fetchMenuItems,
+  updateCategoryAction,
+  updateMenuItemAction,
+} from "@/app/actions/menu"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,74 +87,39 @@ const emptyForm: MenuItemFormValues = {
   stockQuantity: null,
 }
 
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-const MOCK_CATEGORIES: Category[] = [
-  { id: "cat-1", name: "Litson Manok", sortOrder: 0, isActive: true },
-  { id: "cat-2", name: "Sides", sortOrder: 1, isActive: true },
-  { id: "cat-3", name: "Beverages", sortOrder: 2, isActive: true },
-]
-
-const MOCK_ITEMS: MenuItem[] = [
-  {
-    id: "item-1",
-    categoryId: "cat-1",
-    name: "Whole Litson Manok",
-    description: "Our signature roasted chicken, basted in a house marinade.",
-    price: 420,
-    imageUrl: null,
-    isAvailable: true,
-    stockQuantity: 18,
-  },
-  {
-    id: "item-2",
-    categoryId: "cat-1",
-    name: "Half Litson Manok",
-    description: "Half order of our signature roasted chicken.",
-    price: 230,
-    imageUrl: null,
-    isAvailable: true,
-    stockQuantity: 24,
-  },
-  {
-    id: "item-3",
-    categoryId: "cat-2",
-    name: "Java Rice",
-    description: "Garlic fried rice with turmeric and annatto.",
-    price: 45,
-    imageUrl: null,
-    isAvailable: true,
-    stockQuantity: null,
-  },
-  {
-    id: "item-4",
-    categoryId: "cat-3",
-    name: "Iced Tea",
-    description: null,
-    price: 35,
-    imageUrl: null,
-    isAvailable: false,
-    stockQuantity: 0,
-  },
-]
+const emptyCategoryForm = {
+  name: "",
+  isActive: true,
+}
 
 // ---------------------------------------------------------------------------
 // Page Component
 // ---------------------------------------------------------------------------
 
 export default function MenuPage() {
-  const [categories] = useState<Category[]>(MOCK_CATEGORIES)
-  const [items, setItems] = useState<MenuItem[]>(MOCK_ITEMS)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [items, setItems] = useState<MenuItem[]>([])
+
+  useEffect(() => {
+    fetchCategories().then((res) => {
+      if (res.success) setCategories(res.data as Category[])
+    })
+    fetchMenuItems().then((res) => {
+      if (res.success) setItems(res.data as MenuItem[])
+    })
+  }, [])
 
   const [activeCategory, setActiveCategory] = useState("all")
   const [search, setSearch] = useState("")
 
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [form, setForm] = useState<MenuItemFormValues>(emptyForm)
+  const [categoryForm, setCategoryForm] = useState(emptyCategoryForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCategorySubmitting, setIsCategorySubmitting] = useState(false)
 
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -178,7 +153,7 @@ export default function MenuPage() {
 
   function openCreateSheet() {
     setEditingId(null)
-    setForm({ ...emptyForm, categoryId: categories[0]?.id ?? "" })
+    setForm({ ...emptyForm })
     resetImageState()
     setSheetOpen(true)
   }
@@ -189,6 +164,78 @@ export default function MenuPage() {
     setForm(rest)
     resetImageState()
     setSheetOpen(true)
+  }
+
+  function openCreateCategory() {
+    setEditingCategoryId(null)
+    setCategoryForm(emptyCategoryForm)
+  }
+
+  function openEditCategory(category: Category) {
+    setEditingCategoryId(category.id)
+    setCategoryForm({ name: category.name, isActive: category.isActive })
+  }
+
+  async function handleCategorySubmit() {
+    const name = categoryForm.name.trim()
+    if (!name) {
+      toast.error("Category name is required")
+      return
+    }
+
+    setIsCategorySubmitting(true)
+    try {
+      if (editingCategoryId) {
+        const res = await updateCategoryAction({
+          id: editingCategoryId,
+          name,
+          isActive: categoryForm.isActive,
+        })
+        if (!res.success) throw new Error(res.error || "Failed to update category")
+
+        setCategories((prev) =>
+          prev.map((category) =>
+            category.id === editingCategoryId
+              ? (res.data.category as Category)
+              : category
+          )
+        )
+        toast.success("Category updated")
+      } else {
+        const res = await createCategoryAction({
+          name,
+          isActive: categoryForm.isActive,
+          sortOrder: categories.length,
+        })
+        if (!res.success) throw new Error(res.error || "Failed to create category")
+
+        setCategories((prev) => [...prev, res.data.category as Category])
+        toast.success("Category added")
+      }
+
+      openCreateCategory()
+    } catch (err) {
+      toast.error("Category save failed", {
+        description: err instanceof Error ? err.message : "Something went wrong.",
+      })
+    } finally {
+      setIsCategorySubmitting(false)
+    }
+  }
+
+  async function handleCategoryDelete(category: Category) {
+    try {
+      const res = await deleteCategoryAction(category.id)
+      if (!res.success) throw new Error(res.error || "Failed to delete category")
+
+      setCategories((prev) => prev.filter((item) => item.id !== category.id))
+      if (activeCategory === category.id) setActiveCategory("all")
+      toast.success("Category deleted")
+    } catch (err) {
+      toast.error("Category delete failed", {
+        description: err instanceof Error ? err.message : "Something went wrong.",
+      })
+    }
   }
 
   function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -213,30 +260,48 @@ export default function MenuPage() {
     )
 
     try {
-      await new Promise((r) => setTimeout(r, 700))
-
       let finalImageUrl = form.imageUrl
       if (imageFile && imagePreview) finalImageUrl = imagePreview
 
-      const payload: MenuItemFormValues = { ...form, imageUrl: finalImageUrl }
-
       if (editingId) {
+        const res = await updateMenuItemAction({
+          id: editingId,
+          name: form.name,
+          categoryId: form.categoryId,
+          description: form.description || undefined,
+          price: form.price,
+          imageUrl: finalImageUrl || undefined,
+          isAvailable: form.isAvailable,
+          stockQuantity: form.stockQuantity ?? undefined,
+        })
+
+        if (!res.success) {
+          throw new Error(res.error || "Failed to update item")
+        }
+
         setItems((prev) =>
-          prev.map((item) =>
-            item.id === editingId
-              ? { ...item, ...payload, id: editingId }
-              : item
-          )
+          prev.map((item) => (item.id === editingId ? (res.data.item as MenuItem) : item))
         )
         toast.success("Item updated", {
           id: toastId,
           description: `"${form.name}" was saved.`,
         })
       } else {
-        setItems((prev) => [
-          ...prev,
-          { ...payload, id: crypto.randomUUID() },
-        ])
+        const res = await createMenuItemAction({
+          name: form.name,
+          categoryId: form.categoryId,
+          description: form.description || undefined,
+          price: form.price,
+          imageUrl: finalImageUrl || undefined,
+          isAvailable: form.isAvailable,
+          stockQuantity: form.stockQuantity ?? undefined,
+        })
+
+        if (!res.success) {
+          throw new Error(res.error || "Failed to create item")
+        }
+
+        setItems((prev) => [res.data.item as MenuItem, ...prev])
         toast.success("Item created", {
           id: toastId,
           description: `"${form.name}" was added to the menu.`,
@@ -258,7 +323,10 @@ export default function MenuPage() {
   async function handleDelete(id: string, name: string) {
     const toastId = toast.loading(`Deleting "${name}"…`)
     try {
-      await new Promise((r) => setTimeout(r, 500))
+      const res = await deleteMenuItemAction(id)
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete item")
+      }
 
       setItems((prev) => prev.filter((item) => item.id !== id))
       toast.success("Item deleted", {
@@ -286,7 +354,14 @@ export default function MenuPage() {
     )
 
     try {
-      await new Promise((r) => setTimeout(r, 300))
+      const res = await updateMenuItemAction({
+        id,
+        isAvailable: next,
+      })
+
+      if (!res.success) {
+        throw new Error(res.error || "Failed to update availability")
+      }
 
       toast.success(next ? "Item is now live" : "Item hidden", {
         description: next
@@ -327,13 +402,150 @@ export default function MenuPage() {
           </div>
 
           {/* Sheet for Item Creation / Editing */}
-          <Sheet
-            open={sheetOpen}
-            onOpenChange={(open) => {
-              setSheetOpen(open)
-              if (!open) resetImageState()
-            }}
-          >
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Sheet
+              open={categorySheetOpen}
+              onOpenChange={(open) => {
+                setCategorySheetOpen(open)
+                if (open) openCreateCategory()
+              }}
+            >
+              <SheetTrigger
+                render={
+                  <Button variant="outline" className="h-11 w-full px-4 text-sm sm:h-10 sm:w-auto">
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    Categories
+                  </Button>
+                }
+              />
+              <SheetContent side="right" className="h-full p-0 sm:max-w-md">
+                <SheetHeader className="border-b p-4 text-left sm:p-6">
+                  <SheetTitle className="text-lg font-bold">Manage Categories</SheetTitle>
+                  <SheetDescription className="text-xs text-muted-foreground">
+                    Add or update the categories used by your menu items.
+                  </SheetDescription>
+                </SheetHeader>
+
+                <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+                  <div className="space-y-3 rounded-lg border p-3">
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="category-name" className="text-xs font-semibold">
+                        {editingCategoryId ? "Edit category" : "New category"}
+                      </Label>
+                      <Input
+                        id="category-name"
+                        value={categoryForm.name}
+                        onChange={(event) =>
+                          setCategoryForm((current) => ({
+                            ...current,
+                            name: event.target.value,
+                          }))
+                        }
+                        placeholder="e.g. Rice Meals"
+                        className="h-10 text-sm"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
+                      <div>
+                        <Label htmlFor="category-active" className="text-sm font-medium">
+                          Active
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Show this category in menu filters.
+                        </p>
+                      </div>
+                      <Switch
+                        id="category-active"
+                        checked={categoryForm.isActive}
+                        onCheckedChange={(checked) =>
+                          setCategoryForm((current) => ({ ...current, isActive: checked }))
+                        }
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      {editingCategoryId && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={openCreateCategory}
+                          disabled={isCategorySubmitting}
+                        >
+                          Cancel edit
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        className="flex-1 bg-amber-500 text-neutral-950 hover:bg-amber-400"
+                        onClick={handleCategorySubmit}
+                        disabled={isCategorySubmitting}
+                      >
+                        {isCategorySubmitting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : editingCategoryId ? (
+                          "Save category"
+                        ) : (
+                          "Add category"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Categories</Label>
+                    {categories.length === 0 ? (
+                      <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                        No categories yet.
+                      </p>
+                    ) : (
+                      categories.map((category) => (
+                        <div
+                          key={category.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{category.name}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {category.isActive ? "Active" : "Inactive"}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => openEditCategory(category)}
+                              aria-label={`Edit ${category.name}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                              onClick={() => handleCategoryDelete(category)}
+                              aria-label={`Delete ${category.name}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <Sheet
+              open={sheetOpen}
+              onOpenChange={(open) => {
+                setSheetOpen(open)
+                if (!open) resetImageState()
+              }}
+            >
             <SheetTrigger
               render={
                 <Button
@@ -347,8 +559,8 @@ export default function MenuPage() {
             />
 
             <SheetContent
-              side="bottom"
-              className="h-[92vh] sm:h-full sm:max-w-md p-0 flex flex-col gap-0 rounded-t-2xl sm:rounded-none inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto"
+              side="right"
+              className="h-full sm:max-w-md p-0 flex flex-col gap-0"
             >
               <SheetHeader className="p-4 sm:p-6 border-b shrink-0 text-left">
                 <SheetTitle className="text-lg font-bold">
@@ -389,7 +601,12 @@ export default function MenuPage() {
                       }
                     >
                       <SelectTrigger id="category" className="h-11 sm:h-10 text-sm w-full">
-                        <SelectValue placeholder="Select category" />
+                        <SelectValue placeholder="Select category">
+                          {(value) =>
+                            categories.find((cat) => cat.id === value)?.name ??
+                            "Select category"
+                          }
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((cat) => (
@@ -539,7 +756,8 @@ export default function MenuPage() {
                 </Button>
               </SheetFooter>
             </SheetContent>
-          </Sheet>
+            </Sheet>
+          </div>
         </div>
 
         {/* ── Filters: Search & Scrollable Category Tabs ────────────────────────── */}
@@ -733,4 +951,4 @@ export default function MenuPage() {
       </div>
     </div>
   )
-}
+}

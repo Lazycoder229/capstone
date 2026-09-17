@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   AlertCircle,
   Building2,
@@ -64,6 +64,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  assignRolePermissionsAction,
+  assignUserRoleAction,
+  createRoleAction,
+  fetchRbacData,
+} from "@/app/actions/rbac"
 
 // ---------------------------------------------------------------------------
 // Types & Permission Definitions (Matching Module 2 in dbdesign.md)
@@ -179,84 +185,11 @@ const PERMISSION_MODULES: PermissionModuleGroup[] = [
 
 const ALL_PERMISSION_CODES = PERMISSION_MODULES.flatMap((m) => m.permissions.map((p) => p.code))
 
-const INITIAL_ROLES: RoleRecord[] = [
-  {
-    id: "role-owner",
-    name: "Owner / Administrator",
-    description: "Unrestricted master access to all system modules, finances, staff, and hardware settings.",
-    isSystem: true,
-    color: "#e11d48", // Rose
-    permissions: [...ALL_PERMISSION_CODES],
-  },
-  {
-    id: "role-manager",
-    name: "Store Manager",
-    description: "Supervises live operations, voids, inventory management, shift schedules, and daily reports.",
-    isSystem: true,
-    color: "#f59e0b", // Amber
-    permissions: [
-      "orders:create", "orders:view", "orders:settle_payment", "orders:reprint_receipt",
-      "voids:approve", "discounts:senior_pwd", "discounts:custom",
-      "menu:view", "menu:manage", "menu:toggle_availability",
-      "inventory:view", "inventory:stock_in", "inventory:waste",
-      "reports:sales_view", "reports:expenses_manage",
-      "employees:view", "employees:rfid_attendance",
-      "settings:view",
-    ],
-  },
-  {
-    id: "role-cashier",
-    name: "Head Cashier",
-    description: "Handles counter ordering, table assignment, cash/card/GCash settlements, and Senior/PWD discounts.",
-    isSystem: true,
-    color: "#10b981", // Emerald
-    permissions: [
-      "orders:create", "orders:view", "orders:settle_payment", "orders:reprint_receipt",
-      "discounts:senior_pwd",
-      "menu:view", "menu:toggle_availability",
-      "employees:rfid_attendance",
-    ],
-  },
-  {
-    id: "role-kitchen",
-    name: "Kitchen Staff",
-    description: "Views KOT tickets, marks order items ready, monitors ingredient stock, and logs kitchen waste.",
-    isSystem: true,
-    color: "#3b82f6", // Blue
-    permissions: [
-      "orders:view",
-      "menu:view", "menu:toggle_availability",
-      "inventory:view", "inventory:waste",
-      "employees:rfid_attendance",
-    ],
-  },
-  {
-    id: "role-server",
-    name: "Dining Server / Waiter",
-    description: "Takes customer orders on mobile tablets, checks table availability, and clocks attendance.",
-    isSystem: false,
-    color: "#8b5cf6", // Purple
-    permissions: [
-      "orders:create", "orders:view",
-      "menu:view",
-      "employees:rfid_attendance",
-    ],
-  },
-]
-
-const INITIAL_USERS: StaffUserRecord[] = [
-  { id: "usr-1", name: "Admin User", email: "admin@primerestaurant.ph", contactNumber: "+63 917 111 2222", roleId: "role-owner", isActive: true, lastLoginAt: "Just now" },
-  { id: "usr-2", name: "Carlos Mendoza", email: "carlos.m@primerestaurant.ph", contactNumber: "+63 918 222 3333", roleId: "role-manager", isActive: true, lastLoginAt: "Today at 10:15 AM" },
-  { id: "usr-3", name: "Juan Reyes", email: "juan.r@primerestaurant.ph", contactNumber: "+63 919 333 4444", roleId: "role-cashier", isActive: true, lastLoginAt: "Today at 8:02 AM" },
-  { id: "usr-4", name: "Maria Cruz", email: "maria.c@primerestaurant.ph", contactNumber: "+63 920 444 5555", roleId: "role-cashier", isActive: true, lastLoginAt: "Yesterday at 9:30 PM" },
-  { id: "usr-5", name: "Lia Santos", email: "lia.s@primerestaurant.ph", contactNumber: "+63 921 555 6666", roleId: "role-kitchen", isActive: true, lastLoginAt: "Today at 7:55 AM" },
-  { id: "usr-6", name: "Angelo Santos", email: "angelo.s@primerestaurant.ph", contactNumber: "+63 922 666 7777", roleId: "role-server", isActive: true, lastLoginAt: "Yesterday at 10:00 PM" },
-]
-
 export default function RbacPage() {
-  const [roles, setRoles] = useState<RoleRecord[]>(INITIAL_ROLES)
-  const [users, setUsers] = useState<StaffUserRecord[]>(INITIAL_USERS)
-  const [selectedRoleId, setSelectedRoleId] = useState<string>("role-owner")
+  const [roles, setRoles] = useState<RoleRecord[]>([])
+  const [users, setUsers] = useState<StaffUserRecord[]>([])
+  const [permissionIdsByCode, setPermissionIdsByCode] = useState<Record<string, string>>({})
+  const [selectedRoleId, setSelectedRoleId] = useState<string>("")
   const [activeTab, setActiveTab] = useState<"roles" | "users">("roles")
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -274,9 +207,56 @@ export default function RbacPage() {
   const [editingUser, setEditingUser] = useState<StaffUserRecord | null>(null)
   const [assignedRoleForUser, setAssignedRoleForUser] = useState<string>("")
 
+  useEffect(() => {
+    void loadRbacData()
+  }, [])
+
+  async function loadRbacData() {
+    const result = await fetchRbacData()
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    const uiPermissionCodes = PERMISSION_MODULES.flatMap((module) => module.permissions.map((permission) => permission.code))
+    const permissionIds = Object.fromEntries(result.data.permissions.map((permission, index) => [uiPermissionCodes[index], permission.id]))
+    const uiCodeByPermissionId = Object.fromEntries(result.data.permissions.map((permission, index) => [permission.id, uiPermissionCodes[index]]))
+    const rolePermissionCodes = new Map<string, string[]>()
+    result.data.rolePermissions.forEach((rolePermission) => {
+      const code = uiCodeByPermissionId[rolePermission.permissionId]
+      if (code) rolePermissionCodes.set(rolePermission.roleId, [...(rolePermissionCodes.get(rolePermission.roleId) ?? []), code])
+    })
+    const colors = ["#e11d48", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6"]
+    setPermissionIdsByCode(permissionIds)
+    setRoles(result.data.roles.map((role, index) => ({
+      id: role.id,
+      name: role.name,
+      description: role.description ?? "",
+      isSystem: role.isSystem,
+      color: colors[index % colors.length],
+      permissions: rolePermissionCodes.get(role.id) ?? [],
+    })))
+    setUsers(result.data.users.map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      contactNumber: "",
+      roleId: user.roleId ?? "",
+      isActive: user.isActive,
+      lastLoginAt: null,
+    })))
+    setSelectedRoleId((current) => result.data.roles.some((role) => role.id === current) ? current : result.data.roles[0]?.id ?? "")
+  }
+
   // Current active role in view
   const activeRole = useMemo(() => {
-    return roles.find((r) => r.id === selectedRoleId) || roles[0]
+    return roles.find((r) => r.id === selectedRoleId) || roles[0] || {
+      id: "",
+      name: "No roles configured",
+      description: "",
+      isSystem: false,
+      color: "#6b7280",
+      permissions: [],
+    }
   }, [roles, selectedRoleId])
 
   // Count users per role
@@ -289,55 +269,52 @@ export default function RbacPage() {
   }, [users])
 
   // Toggle single permission on active role
-  const handleTogglePermission = (code: string) => {
-    if (activeRole.isSystem && activeRole.id === "role-owner") {
+  const handleTogglePermission = async (code: string) => {
+    if (activeRole.isSystem && activeRole.name.toLowerCase().includes("owner")) {
       toast.error("Owner / Administrator role must retain all system permissions")
       return
     }
 
-    setRoles((prev) =>
-      prev.map((role) => {
-        if (role.id !== activeRole.id) return role
-        const has = role.permissions.includes(code)
-        const updatedPermissions = has
-          ? role.permissions.filter((p) => p !== code)
-          : [...role.permissions, code]
-        return { ...role, permissions: updatedPermissions }
-      })
-    )
+    const has = activeRole.permissions.includes(code)
+    const updatedPermissions = has
+      ? activeRole.permissions.filter((permission) => permission !== code)
+      : [...activeRole.permissions, code]
+    const result = await assignRolePermissionsAction({
+      roleId: activeRole.id,
+      permissionIds: updatedPermissions.map((permission) => permissionIdsByCode[permission]).filter(Boolean),
+    })
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    setRoles((prev) => prev.map((role) => role.id === activeRole.id ? { ...role, permissions: updatedPermissions } : role))
     toast.success("Permission updated")
   }
 
   // Grant all permissions for module
-  const handleGrantModule = (group: PermissionModuleGroup) => {
-    if (activeRole.isSystem && activeRole.id === "role-owner") return
+  const handleGrantModule = async (group: PermissionModuleGroup) => {
+    if (activeRole.isSystem && activeRole.name.toLowerCase().includes("owner")) return
     const codes = group.permissions.map((p) => p.code)
-    setRoles((prev) =>
-      prev.map((role) => {
-        if (role.id !== activeRole.id) return role
-        const merged = Array.from(new Set([...role.permissions, ...codes]))
-        return { ...role, permissions: merged }
-      })
-    )
+    const merged = Array.from(new Set([...activeRole.permissions, ...codes]))
+    const result = await assignRolePermissionsAction({ roleId: activeRole.id, permissionIds: merged.map((code) => permissionIdsByCode[code]).filter(Boolean) })
+    if (!result.success) { toast.error(result.error); return }
+    setRoles((prev) => prev.map((role) => role.id === activeRole.id ? { ...role, permissions: merged } : role))
     toast.success(`Granted all ${group.label} permissions`)
   }
 
   // Revoke all permissions for module
-  const handleRevokeModule = (group: PermissionModuleGroup) => {
-    if (activeRole.isSystem && activeRole.id === "role-owner") return
+  const handleRevokeModule = async (group: PermissionModuleGroup) => {
+    if (activeRole.isSystem && activeRole.name.toLowerCase().includes("owner")) return
     const codes = group.permissions.map((p) => p.code)
-    setRoles((prev) =>
-      prev.map((role) => {
-        if (role.id !== activeRole.id) return role
-        const filtered = role.permissions.filter((p) => !codes.includes(p))
-        return { ...role, permissions: filtered }
-      })
-    )
+    const filtered = activeRole.permissions.filter((permission) => !codes.includes(permission))
+    const result = await assignRolePermissionsAction({ roleId: activeRole.id, permissionIds: filtered.map((code) => permissionIdsByCode[code]).filter(Boolean) })
+    if (!result.success) { toast.error(result.error); return }
+    setRoles((prev) => prev.map((role) => role.id === activeRole.id ? { ...role, permissions: filtered } : role))
     toast.info(`Revoked all ${group.label} permissions`)
   }
 
   // Create new custom role
-  const handleCreateRole = (e: React.FormEvent) => {
+  const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newRoleName.trim()) {
       toast.error("Role name is required")
@@ -350,17 +327,17 @@ export default function RbacPage() {
       if (source) initialPermissions = [...source.permissions]
     }
 
-    const newRole: RoleRecord = {
-      id: `role-${Date.now()}`,
+    const result = await createRoleAction({
       name: newRoleName.trim(),
       description: newRoleDesc.trim() || "Custom restaurant staff role",
       isSystem: false,
-      color: newRoleColor,
-      permissions: initialPermissions,
+      permissionIds: initialPermissions.map((permission) => permissionIdsByCode[permission]).filter(Boolean),
+    })
+    if (!result.success) {
+      toast.error(result.error)
+      return
     }
-
-    setRoles((prev) => [...prev, newRole])
-    setSelectedRoleId(newRole.id)
+    await loadRbacData()
     setIsCreateRoleOpen(false)
     setNewRoleName("")
     setNewRoleDesc("")
@@ -378,23 +355,19 @@ export default function RbacPage() {
       return
     }
 
-    // Reassign users of this role to Cashier default
-    setUsers((prev) =>
-      prev.map((u) => (u.roleId === deletingRoleId ? { ...u, roleId: "role-cashier" } : u))
-    )
-
-    setRoles((prev) => prev.filter((r) => r.id !== deletingRoleId))
-    setSelectedRoleId("role-owner")
     setDeletingRoleId(null)
-    toast.success("Role deleted and assigned users moved to Cashier")
+    toast.error("Role deletion is not available in the existing server-action contract")
   }
 
   // Save updated role for user
-  const handleSaveUserRole = () => {
+  const handleSaveUserRole = async () => {
     if (!editingUser || !assignedRoleForUser) return
-    setUsers((prev) =>
-      prev.map((u) => (u.id === editingUser.id ? { ...u, roleId: assignedRoleForUser } : u))
-    )
+    const result = await assignUserRoleAction({ userId: editingUser.id, roleId: assignedRoleForUser })
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    await loadRbacData()
     setEditingUser(null)
     toast.success("Staff role updated successfully")
   }
@@ -556,7 +529,7 @@ export default function RbacPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0 space-y-5">
-                    {activeRole.isSystem && activeRole.id === "role-owner" && (
+                    {activeRole.isSystem && activeRole.name.toLowerCase().includes("owner") && (
                       <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs flex items-center gap-2.5 text-amber-900 dark:text-amber-200">
                         <ShieldCheck className="size-4 shrink-0 text-amber-600" />
                         <span>
@@ -594,7 +567,7 @@ export default function RbacPage() {
                                 </div>
                               </div>
 
-                              {(!activeRole.isSystem || activeRole.id !== "role-owner") && (
+                              {(!activeRole.isSystem || !activeRole.name.toLowerCase().includes("owner")) && (
                                 <div className="flex items-center gap-1.5">
                                   <Button
                                     variant="ghost"
@@ -620,7 +593,7 @@ export default function RbacPage() {
                             <div className="divide-y divide-border/60">
                               {group.permissions.map((perm) => {
                                 const isAllowed = activeRole.permissions.includes(perm.code)
-                                const isLocked = activeRole.isSystem && activeRole.id === "role-owner"
+                                const isLocked = activeRole.isSystem && activeRole.name.toLowerCase().includes("owner")
 
                                 return (
                                   <div

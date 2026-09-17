@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   BadgePercent,
   CalendarRange,
@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Eye,
   Flame,
+  Loader2,
   Pencil,
   Plus,
   Search,
@@ -53,12 +54,21 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Toaster } from "@/components/ui/sonner"
+import {
+  createDiscountTypeAction,
+  createPromotionAction,
+  deleteDiscountTypeAction,
+  deletePromotionAction,
+  fetchDiscounts,
+  updateDiscountTypeAction,
+  updatePromotionAction,
+} from "@/app/actions/discounts"
+import { fetchMenuItems } from "@/app/actions/menu"
 
 // ---------------------------------------------------------------------------
-// Types — mirrors `discount_types`, `promotions`, `promotion_items` DB tables
+// Types
 // ---------------------------------------------------------------------------
 
-/** discount_types */
 interface DiscountType {
   id: string
   name: string
@@ -69,7 +79,6 @@ interface DiscountType {
 
 type DiscountTypeForm = Omit<DiscountType, "id">
 
-/** promotions */
 type PromoType = "percentage" | "fixed_amount" | "buy_x_get_y"
 
 interface Promotion {
@@ -85,29 +94,15 @@ interface Promotion {
   usageCount: number
   isActive: boolean
   createdByStaffId: string
-  /** denormalized labels for display */
-  linkedItems: string[]
+  menuItemIds: string[]
 }
 
-type PromotionForm = Omit<Promotion, "id" | "usageCount">
+type PromotionForm = Omit<Promotion, "id" | "usageCount" | "createdByStaffId">
 
-// ---------------------------------------------------------------------------
-// Reference data
-// ---------------------------------------------------------------------------
-
-const menuItems = [
-  { id: "item-whole", name: "Whole Litson Manok" },
-  { id: "item-half", name: "Half Litson Manok" },
-  { id: "item-rice", name: "Java Rice" },
-  { id: "item-tea", name: "Iced Tea" },
-  { id: "item-lumpia", name: "Lumpia" },
-  { id: "item-halo", name: "Halo-halo" },
-]
-
-const staff = [
-  { id: "staff-admin", label: "Admin User" },
-  { id: "staff-cashier", label: "Cashier" },
-]
+interface MenuItemOption {
+  id: string
+  name: string
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -172,119 +167,6 @@ const promoStatusClasses: Record<string, string> = {
 }
 
 // ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-const MOCK_DISCOUNTS: DiscountType[] = [
-  {
-    id: "disc-senior",
-    name: "Senior Citizen",
-    percentage: 20,
-    requiresIdVerification: true,
-    isActive: true,
-  },
-  {
-    id: "disc-pwd",
-    name: "PWD",
-    percentage: 20,
-    requiresIdVerification: true,
-    isActive: true,
-  },
-  {
-    id: "disc-employee",
-    name: "Employee Meal",
-    percentage: 50,
-    requiresIdVerification: false,
-    isActive: true,
-  },
-  {
-    id: "disc-loyalty",
-    name: "Loyalty Member",
-    percentage: 5,
-    requiresIdVerification: false,
-    isActive: false,
-  },
-]
-
-const MOCK_PROMOS: Promotion[] = [
-  {
-    id: "promo-001",
-    name: "Weekday Lunch Special",
-    description: "Get 15% off on orders placed Monday to Friday, 11AM–2PM.",
-    promoType: "percentage",
-    discountValue: 15,
-    minSpend: 200,
-    startDate: fmt(today),
-    endDate: fmt(addDays(today, 30)),
-    usageLimit: null,
-    usageCount: 38,
-    isActive: true,
-    createdByStaffId: "staff-admin",
-    linkedItems: [],
-  },
-  {
-    id: "promo-002",
-    name: "Birthday Bundle",
-    description: "₱100 off for birthday celebrants. ID required.",
-    promoType: "fixed_amount",
-    discountValue: 100,
-    minSpend: 500,
-    startDate: fmt(today),
-    endDate: fmt(addDays(today, 90)),
-    usageLimit: null,
-    usageCount: 12,
-    isActive: true,
-    createdByStaffId: "staff-admin",
-    linkedItems: ["Whole Litson Manok", "Halo-halo"],
-  },
-  {
-    id: "promo-003",
-    name: "Free Java Rice",
-    description: "Buy any Litson Manok and get a free Java Rice.",
-    promoType: "buy_x_get_y",
-    discountValue: null,
-    minSpend: null,
-    startDate: fmt(addDays(today, 7)),
-    endDate: fmt(addDays(today, 37)),
-    usageLimit: 100,
-    usageCount: 0,
-    isActive: true,
-    createdByStaffId: "staff-cashier",
-    linkedItems: ["Whole Litson Manok", "Half Litson Manok"],
-  },
-  {
-    id: "promo-004",
-    name: "Holiday Fiesta Promo",
-    description: "20% off all orders during the holidays.",
-    promoType: "percentage",
-    discountValue: 20,
-    minSpend: 300,
-    startDate: fmt(addDays(today, -60)),
-    endDate: fmt(addDays(today, -30)),
-    usageLimit: 200,
-    usageCount: 200,
-    isActive: true,
-    createdByStaffId: "staff-admin",
-    linkedItems: [],
-  },
-  {
-    id: "promo-005",
-    name: "Staff Test Promo",
-    description: null,
-    promoType: "fixed_amount",
-    discountValue: 50,
-    minSpend: null,
-    startDate: fmt(addDays(today, -10)),
-    endDate: fmt(addDays(today, 10)),
-    usageLimit: 10,
-    usageCount: 3,
-    isActive: false,
-    createdByStaffId: "staff-cashier",
-    linkedItems: [],
-  },
-]
-
-// ---------------------------------------------------------------------------
 // Empty forms
 // ---------------------------------------------------------------------------
 
@@ -305,11 +187,13 @@ const emptyPromoForm: PromotionForm = {
   endDate: fmt(addDays(today, 30)),
   usageLimit: null,
   isActive: true,
-  createdByStaffId: "staff-admin",
-  linkedItems: [],
+  menuItemIds: [],
 }
 
-// Promo tabs
+// ---------------------------------------------------------------------------
+// Tab config
+// ---------------------------------------------------------------------------
+
 const promoTabs = [
   { value: "all", label: "All promos" },
   { value: "active", label: "Active" },
@@ -317,7 +201,6 @@ const promoTabs = [
   { value: "expired", label: "Expired / Inactive" },
 ]
 
-// Page-level tabs
 const pageTabs = [
   { value: "promos", label: "Promotions" },
   { value: "discounts", label: "Discount types" },
@@ -330,8 +213,14 @@ const pageTabs = [
 export default function DiscountsPage() {
   const [pageTab, setPageTab] = useState("promos")
 
-  // ---- Promotions state ----
-  const [promos, setPromos] = useState<Promotion[]>(MOCK_PROMOS)
+  // ---- Data state ----
+  const [promos, setPromos] = useState<Promotion[]>([])
+  const [discounts, setDiscounts] = useState<DiscountType[]>([])
+  const [menuItems, setMenuItems] = useState<MenuItemOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  // ---- Promo UI state ----
   const [promoTab, setPromoTab] = useState("all")
   const [promoSearch, setPromoSearch] = useState("")
   const [promoPage, setPromoPage] = useState(1)
@@ -340,8 +229,7 @@ export default function DiscountsPage() {
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null)
   const [promoForm, setPromoForm] = useState<PromotionForm>(emptyPromoForm)
 
-  // ---- Discount types state ----
-  const [discounts, setDiscounts] = useState<DiscountType[]>(MOCK_DISCOUNTS)
+  // ---- Discount UI state ----
   const [discountSearch, setDiscountSearch] = useState("")
   const [selectedDiscount, setSelectedDiscount] = useState<DiscountType | null>(null)
   const [discountSheetOpen, setDiscountSheetOpen] = useState(false)
@@ -350,7 +238,40 @@ export default function DiscountsPage() {
 
   const pageSize = 6
 
-  // ---- Promo filters ----
+  // ---------------------------------------------------------------------------
+  // Load data from server
+  // ---------------------------------------------------------------------------
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [discountsRes, menuRes] = await Promise.all([fetchDiscounts(), fetchMenuItems()])
+
+      if (discountsRes.success) {
+        setDiscounts(discountsRes.data.discountTypes as DiscountType[])
+        setPromos(discountsRes.data.promotions as Promotion[])
+      } else {
+        toast.error("Failed to load data", { description: (discountsRes as any).error })
+      }
+
+      if (menuRes.success) {
+        setMenuItems((menuRes.data as any[]).map((m) => ({ id: m.id, name: m.name })))
+      }
+    } catch (err: any) {
+      toast.error("Failed to load data", { description: err.message })
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // ---------------------------------------------------------------------------
+  // Filtering + pagination
+  // ---------------------------------------------------------------------------
+
   const filteredPromos = useMemo(() => {
     const query = promoSearch.trim().toLowerCase()
     return promos.filter((p) => {
@@ -381,7 +302,6 @@ export default function DiscountsPage() {
 
   useEffect(() => { setPromoPage(1) }, [promoTab, promoSearch])
 
-  // ---- Discount filters ----
   const filteredDiscounts = useMemo(() => {
     const query = discountSearch.trim().toLowerCase()
     return discounts.filter(
@@ -389,7 +309,6 @@ export default function DiscountsPage() {
     )
   }, [discounts, discountSearch])
 
-  // ---- Stat counts ----
   const counts = useMemo(() => ({
     active: promos.filter((p) => promoStatus(p) === "active").length,
     scheduled: promos.filter((p) => promoStatus(p) === "scheduled").length,
@@ -397,7 +316,10 @@ export default function DiscountsPage() {
     discountTypes: discounts.filter((d) => d.isActive).length,
   }), [promos, discounts])
 
-  // ---- Promo CRUD ----
+  // ---------------------------------------------------------------------------
+  // Promo CRUD
+  // ---------------------------------------------------------------------------
+
   function openCreatePromo() {
     setEditingPromoId(null)
     setPromoForm(emptyPromoForm)
@@ -416,13 +338,12 @@ export default function DiscountsPage() {
       endDate: promo.endDate,
       usageLimit: promo.usageLimit,
       isActive: promo.isActive,
-      createdByStaffId: promo.createdByStaffId,
-      linkedItems: promo.linkedItems,
+      menuItemIds: promo.menuItemIds,
     })
     setPromoSheetOpen(true)
   }
 
-  function savePromo() {
+  async function savePromo() {
     if (!promoForm.name.trim()) {
       toast.error("Promo name is required")
       return
@@ -431,46 +352,68 @@ export default function DiscountsPage() {
       toast.error("End date must be after start date")
       return
     }
-    if (editingPromoId) {
-      setPromos((current) =>
-        current.map((p) =>
-          p.id === editingPromoId ? { ...p, ...promoForm } : p,
-        ),
-      )
-      setSelectedPromo((current) =>
-        current?.id === editingPromoId ? { ...current, ...promoForm } : current,
-      )
-      toast.success("Promotion updated", { description: `${promoForm.name} was saved.` })
-    } else {
-      const newPromo: Promotion = {
-        id: crypto.randomUUID(),
-        ...promoForm,
-        usageCount: 0,
+
+    setSaving(true)
+    try {
+      if (editingPromoId) {
+        const result = await updatePromotionAction({ id: editingPromoId, ...promoForm })
+        if (!result.success) {
+          toast.error("Failed to update promotion", { description: result.error })
+          return
+        }
+        toast.success("Promotion updated", { description: `${promoForm.name} was saved.` })
+      } else {
+        const result = await createPromotionAction(promoForm)
+        if (!result.success) {
+          toast.error("Failed to create promotion", { description: result.error })
+          return
+        }
+        toast.success("Promotion created", { description: `${promoForm.name} is now live.` })
       }
-      setPromos((current) => [newPromo, ...current])
-      toast.success("Promotion created", { description: `${promoForm.name} is now live.` })
+      setPromoSheetOpen(false)
+      await loadData()
+    } catch (err: any) {
+      toast.error("Something went wrong", { description: err.message })
+    } finally {
+      setSaving(false)
     }
-    setPromoSheetOpen(false)
   }
 
-  function deletePromo(promo: Promotion) {
-    setPromos((current) => current.filter((p) => p.id !== promo.id))
-    setSelectedPromo(null)
-    toast.success("Promotion deleted", { description: `${promo.name} was removed.` })
+  async function deletePromo(promo: Promotion) {
+    try {
+      const result = await deletePromotionAction(promo.id)
+      if (!result.success) {
+        toast.error("Failed to delete promotion", { description: result.error })
+        return
+      }
+      setSelectedPromo(null)
+      toast.success("Promotion deleted", { description: `${promo.name} was removed.` })
+      await loadData()
+    } catch (err: any) {
+      toast.error("Something went wrong", { description: err.message })
+    }
   }
 
-  function togglePromoActive(promo: Promotion) {
-    const next = !promo.isActive
-    setPromos((current) =>
-      current.map((p) => (p.id === promo.id ? { ...p, isActive: next } : p)),
-    )
-    setSelectedPromo((current) =>
-      current?.id === promo.id ? { ...current, isActive: next } : current,
-    )
-    toast.success(next ? `${promo.name} activated` : `${promo.name} deactivated`)
+  async function togglePromoActive(promo: Promotion) {
+    try {
+      const next = !promo.isActive
+      const result = await updatePromotionAction({ id: promo.id, isActive: next })
+      if (!result.success) {
+        toast.error("Failed to update promotion", { description: result.error })
+        return
+      }
+      toast.success(next ? `${promo.name} activated` : `${promo.name} deactivated`)
+      await loadData()
+      setSelectedPromo((current) => (current?.id === promo.id ? { ...current, isActive: next } : current))
+    } catch (err: any) {
+      toast.error("Something went wrong", { description: err.message })
+    }
   }
 
-  // ---- Discount CRUD ----
+  // ---------------------------------------------------------------------------
+  // Discount CRUD
+  // ---------------------------------------------------------------------------
+
   function openCreateDiscount() {
     setEditingDiscountId(null)
     setDiscountForm(emptyDiscountForm)
@@ -488,7 +431,7 @@ export default function DiscountsPage() {
     setDiscountSheetOpen(true)
   }
 
-  function saveDiscount() {
+  async function saveDiscount() {
     if (!discountForm.name.trim()) {
       toast.error("Discount name is required")
       return
@@ -497,43 +440,74 @@ export default function DiscountsPage() {
       toast.error("Percentage must be between 1 and 100")
       return
     }
-    if (editingDiscountId) {
-      setDiscounts((current) =>
-        current.map((d) =>
-          d.id === editingDiscountId ? { ...d, ...discountForm } : d,
-        ),
-      )
-      setSelectedDiscount((current) =>
-        current?.id === editingDiscountId ? { ...current, ...discountForm } : current,
-      )
-      toast.success("Discount type updated", { description: `${discountForm.name} was saved.` })
-    } else {
-      const newDiscount: DiscountType = {
-        id: crypto.randomUUID(),
-        ...discountForm,
+
+    setSaving(true)
+    try {
+      if (editingDiscountId) {
+        const result = await updateDiscountTypeAction({
+          id: editingDiscountId,
+          ...discountForm,
+        })
+        if (!result.success) {
+          toast.error("Failed to update discount", { description: result.error })
+          return
+        }
+        toast.success("Discount type updated", { description: `${discountForm.name} was saved.` })
+      } else {
+        const result = await createDiscountTypeAction(discountForm)
+        if (!result.success) {
+          toast.error("Failed to create discount", { description: result.error })
+          return
+        }
+        toast.success("Discount type added", {
+          description: `${discountForm.name} is now available at checkout.`,
+        })
       }
-      setDiscounts((current) => [...current, newDiscount])
-      toast.success("Discount type added", { description: `${discountForm.name} is now available at checkout.` })
+      setDiscountSheetOpen(false)
+      await loadData()
+    } catch (err: any) {
+      toast.error("Something went wrong", { description: err.message })
+    } finally {
+      setSaving(false)
     }
-    setDiscountSheetOpen(false)
   }
 
-  function deleteDiscount(discount: DiscountType) {
-    setDiscounts((current) => current.filter((d) => d.id !== discount.id))
-    setSelectedDiscount(null)
-    toast.success("Discount type removed", { description: `${discount.name} was deleted.` })
+  async function deleteDiscount(discount: DiscountType) {
+    try {
+      const result = await deleteDiscountTypeAction(discount.id)
+      if (!result.success) {
+        toast.error("Failed to delete discount", { description: result.error })
+        return
+      }
+      setSelectedDiscount(null)
+      toast.success("Discount type removed", { description: `${discount.name} was deleted.` })
+      await loadData()
+    } catch (err: any) {
+      toast.error("Something went wrong", { description: err.message })
+    }
   }
 
-  function toggleDiscountActive(discount: DiscountType) {
-    const next = !discount.isActive
-    setDiscounts((current) =>
-      current.map((d) => (d.id === discount.id ? { ...d, isActive: next } : d)),
-    )
-    setSelectedDiscount((current) =>
-      current?.id === discount.id ? { ...current, isActive: next } : current,
-    )
-    toast.success(next ? `${discount.name} enabled` : `${discount.name} disabled`)
+  async function toggleDiscountActive(discount: DiscountType) {
+    try {
+      const next = !discount.isActive
+      const result = await updateDiscountTypeAction({ id: discount.id, isActive: next })
+      if (!result.success) {
+        toast.error("Failed to update discount", { description: result.error })
+        return
+      }
+      toast.success(next ? `${discount.name} enabled` : `${discount.name} disabled`)
+      await loadData()
+      setSelectedDiscount((current) =>
+        current?.id === discount.id ? { ...current, isActive: next } : current,
+      )
+    } catch (err: any) {
+      toast.error("Something went wrong", { description: err.message })
+    }
   }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="w-full min-w-0 overflow-x-hidden pb-16 sm:pb-8">
@@ -652,7 +626,11 @@ export default function DiscountsPage() {
             </CardHeader>
 
             <CardContent className="p-0">
-              {filteredPromos.length ? (
+              {loading ? (
+                <div className="flex items-center justify-center p-12">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredPromos.length ? (
                 <div className="divide-y">
                   {paginatedPromos.map((promo) => {
                     const ps = promoStatus(promo)
@@ -710,7 +688,7 @@ export default function DiscountsPage() {
               )}
             </CardContent>
 
-            {filteredPromos.length > pageSize && (
+            {!loading && filteredPromos.length > pageSize && (
               <div className="flex items-center justify-between border-t px-4 py-3 sm:px-6">
                 <p className="text-xs text-muted-foreground">
                   Showing {(promoPage - 1) * pageSize + 1}–
@@ -783,7 +761,11 @@ export default function DiscountsPage() {
             </CardHeader>
 
             <CardContent className="p-0">
-              {filteredDiscounts.length ? (
+              {loading ? (
+                <div className="flex items-center justify-center p-12">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredDiscounts.length ? (
                 <div className="divide-y">
                   {filteredDiscounts.map((discount) => (
                     <div
@@ -981,74 +963,56 @@ export default function DiscountsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="promo-limit">Usage limit (optional)</Label>
-                <Input
-                  id="promo-limit"
-                  type="number"
-                  min={1}
-                  value={promoForm.usageLimit ?? ""}
-                  onChange={(e) =>
-                    setPromoForm((c) => ({
-                      ...c,
-                      usageLimit: Number(e.target.value) || null,
-                    }))
-                  }
-                  placeholder="Unlimited"
-                  className="h-11 sm:h-10"
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Created by</Label>
-                <Select
-                  value={promoForm.createdByStaffId}
-                  onValueChange={(value) =>
-                    setPromoForm((c) => ({ ...c, createdByStaffId: value }))
-                  }
-                >
-                  <SelectTrigger className="h-11 w-full sm:h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staff.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="promo-limit">Usage limit (optional)</Label>
+              <Input
+                id="promo-limit"
+                type="number"
+                min={1}
+                value={promoForm.usageLimit ?? ""}
+                onChange={(e) =>
+                  setPromoForm((c) => ({
+                    ...c,
+                    usageLimit: Number(e.target.value) || null,
+                  }))
+                }
+                placeholder="Unlimited"
+                className="h-11 sm:h-10"
+              />
             </div>
 
             {/* Linked menu items */}
             <div className="grid gap-1.5">
               <Label>Linked menu items (optional)</Label>
               <div className="flex flex-wrap gap-2 rounded-lg border p-3">
-                {menuItems.map((item) => {
-                  const linked = promoForm.linkedItems.includes(item.name)
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() =>
-                        setPromoForm((c) => ({
-                          ...c,
-                          linkedItems: linked
-                            ? c.linkedItems.filter((n) => n !== item.name)
-                            : [...c.linkedItems, item.name],
-                        }))
-                      }
-                      className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                        linked
-                          ? "border-amber-500 bg-amber-500 text-neutral-950"
-                          : "border-border text-muted-foreground hover:border-amber-400 hover:text-amber-700"
-                      }`}
-                    >
-                      {item.name}
-                    </button>
-                  )
-                })}
+                {menuItems.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No menu items found.</p>
+                ) : (
+                  menuItems.map((item) => {
+                    const linked = promoForm.menuItemIds.includes(item.id)
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() =>
+                          setPromoForm((c) => ({
+                            ...c,
+                            menuItemIds: linked
+                              ? c.menuItemIds.filter((id) => id !== item.id)
+                              : [...c.menuItemIds, item.id],
+                          }))
+                        }
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                          linked
+                            ? "border-amber-500 bg-amber-500 text-neutral-950"
+                            : "border-border text-muted-foreground hover:border-amber-400 hover:text-amber-700"
+                        }`}
+                      >
+                        {item.name}
+                      </button>
+                    )
+                  })
+                )}
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Leave empty to apply to the entire order.
@@ -1075,14 +1039,17 @@ export default function DiscountsPage() {
             <Button
               variant="outline"
               onClick={() => setPromoSheetOpen(false)}
+              disabled={saving}
               className="flex-1 border-amber-500 text-amber-700 hover:bg-amber-50"
             >
               Cancel
             </Button>
             <Button
               onClick={savePromo}
+              disabled={saving}
               className="flex-1 bg-amber-500 font-semibold text-neutral-950 hover:bg-amber-400"
             >
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               {editingPromoId ? "Save changes" : "Create promotion"}
             </Button>
           </SheetFooter>
@@ -1158,17 +1125,20 @@ export default function DiscountsPage() {
                   </div>
                 </div>
 
-                {selectedPromo.linkedItems.length > 0 && (
+                {selectedPromo.menuItemIds.length > 0 && (
                   <div className="rounded-lg border bg-muted/30 p-3">
                     <p className="mb-2 text-xs text-muted-foreground">
                       Linked menu items
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {selectedPromo.linkedItems.map((item) => (
-                        <Badge key={item} variant="outline" className="text-xs">
-                          {item}
-                        </Badge>
-                      ))}
+                      {selectedPromo.menuItemIds.map((id) => {
+                        const item = menuItems.find((m) => m.id === id)
+                        return (
+                          <Badge key={id} variant="outline" className="text-xs">
+                            {item?.name ?? id}
+                          </Badge>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -1190,14 +1160,14 @@ export default function DiscountsPage() {
                     <AlertDialogTrigger
                       render={
                         <Button
-                          variant="outline"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="mr-2 size-4" />
-                          Delete
-                        </Button>
+                        variant="outline"
+                        className="text-destructive hover:text-destructive"
+                        />
                       }
-                    />
+                    >
+                      <Trash2 className="mr-2 size-4" />
+                      Delete
+                    </AlertDialogTrigger>
                     <AlertDialogContent className="w-[90vw] max-w-md rounded-xl sm:rounded-lg">
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete {selectedPromo.name}?</AlertDialogTitle>
@@ -1322,14 +1292,17 @@ export default function DiscountsPage() {
             <Button
               variant="outline"
               onClick={() => setDiscountSheetOpen(false)}
+              disabled={saving}
               className="flex-1 border-amber-500 text-amber-700 hover:bg-amber-50"
             >
               Cancel
             </Button>
             <Button
               onClick={saveDiscount}
+              disabled={saving}
               className="flex-1 bg-amber-500 font-semibold text-neutral-950 hover:bg-amber-400"
             >
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               {editingDiscountId ? "Save changes" : "Add discount type"}
             </Button>
           </SheetFooter>
@@ -1403,14 +1376,14 @@ export default function DiscountsPage() {
                     <AlertDialogTrigger
                       render={
                         <Button
-                          variant="outline"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="mr-2 size-4" />
-                          Delete
-                        </Button>
+                        variant="outline"
+                        className="text-destructive hover:text-destructive"
+                        />
                       }
-                    />
+                    >
+                      <Trash2 className="mr-2 size-4" />
+                      Delete
+                    </AlertDialogTrigger>
                     <AlertDialogContent className="w-[90vw] max-w-md rounded-xl sm:rounded-lg">
                       <AlertDialogHeader>
                         <AlertDialogTitle>

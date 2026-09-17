@@ -62,6 +62,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Switch } from "@/components/ui/switch"
 import { Toaster } from "@/components/ui/sonner"
+import {
+  createPrinterAction,
+  deletePrinterAction,
+  fetchPrinters,
+  updatePrinterAction,
+} from "@/app/actions/printers"
 
 // ---------------------------------------------------------------------------
 // Types — mirrors `printers` table in `dbdesign.md`
@@ -100,69 +106,6 @@ const emptyPrinterForm: PrinterFormValues = {
 }
 
 // ---------------------------------------------------------------------------
-// Mock Data
-// ---------------------------------------------------------------------------
-
-const INITIAL_PRINTERS: PrinterDevice[] = [
-  {
-    id: "prn-001",
-    name: "Kitchen Main Thermal",
-    location: "kitchen",
-    connectionType: "network",
-    ipAddress: "192.168.1.201",
-    port: 9100,
-    paperWidth: "80mm",
-    autoCut: true,
-    buzzerOnPrint: true,
-    isActive: true,
-    status: "online",
-    lastPingAt: "2026-09-17T10:45:00",
-  },
-  {
-    id: "prn-002",
-    name: "Front Counter Cashier",
-    location: "counter",
-    connectionType: "network",
-    ipAddress: "192.168.1.202",
-    port: 9100,
-    paperWidth: "80mm",
-    autoCut: true,
-    buzzerOnPrint: false,
-    isActive: true,
-    status: "online",
-    lastPingAt: "2026-09-17T10:46:12",
-  },
-  {
-    id: "prn-003",
-    name: "Beverage & Dessert Station",
-    location: "kitchen",
-    connectionType: "network",
-    ipAddress: "192.168.1.203",
-    port: 9100,
-    paperWidth: "58mm",
-    autoCut: true,
-    buzzerOnPrint: true,
-    isActive: true,
-    status: "online",
-    lastPingAt: "2026-09-17T10:44:20",
-  },
-  {
-    id: "prn-004",
-    name: "Handheld Bluetooth Backup",
-    location: "counter",
-    connectionType: "bluetooth",
-    ipAddress: null,
-    port: undefined,
-    paperWidth: "58mm",
-    autoCut: false,
-    buzzerOnPrint: false,
-    isActive: false,
-    status: "offline",
-    lastPingAt: "2026-09-16T18:30:00",
-  },
-]
-
-// ---------------------------------------------------------------------------
 // Helpers & Visual Styles
 // ---------------------------------------------------------------------------
 
@@ -195,7 +138,7 @@ const PAGE_SIZE = 8
 // ---------------------------------------------------------------------------
 
 export default function PrinterSettingsPage() {
-  const [printers, setPrinters] = useState<PrinterDevice[]>(INITIAL_PRINTERS)
+  const [printers, setPrinters] = useState<PrinterDevice[]>([])
   const [locationFilter, setLocationFilter] = useState<string>("all")
   const [connectionFilter, setConnectionFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -210,6 +153,26 @@ export default function PrinterSettingsPage() {
   const [testPrinter, setTestPrinter] = useState<PrinterDevice | null>(null)
   const [isTesting, setIsTesting] = useState(false)
   const [testSuccess, setTestSuccess] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    void loadPrinters()
+  }, [])
+
+  async function loadPrinters() {
+    const result = await fetchPrinters()
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    setPrinters(result.data.map((printer) => ({
+      ...printer,
+      status: printer.isActive ? "online" : "offline",
+      port: 9100,
+      paperWidth: "80mm",
+      autoCut: true,
+      buzzerOnPrint: true,
+    })))
+  }
 
   useEffect(() => {
     setCurrentPage(1)
@@ -282,7 +245,7 @@ export default function PrinterSettingsPage() {
     setSheetOpen(true)
   }
 
-  function handleSavePrinter() {
+  async function handleSavePrinter() {
     if (!formData.name.trim()) {
       toast.error("Printer name is required")
       return
@@ -293,39 +256,34 @@ export default function PrinterSettingsPage() {
       return
     }
 
-    if (editingPrinterId) {
-      setPrinters((current) =>
-        current.map((p) =>
-          p.id === editingPrinterId
-            ? {
-                ...p,
-                ...formData,
-                ipAddress: formData.connectionType === "network" ? formData.ipAddress : null,
-              }
-            : p,
-        ),
-      )
-      toast.success("Printer settings updated", {
-        description: `${formData.name} configuration saved successfully.`,
-      })
-    } else {
-      const newPrinter: PrinterDevice = {
-        id: crypto.randomUUID(),
-        ...formData,
-        ipAddress: formData.connectionType === "network" ? formData.ipAddress : null,
-        status: "online",
-        lastPingAt: new Date().toISOString(),
-      }
-      setPrinters((current) => [newPrinter, ...current])
-      toast.success("New printer added", {
-        description: `${formData.name} is now registered for ESC/POS printing.`,
-      })
+    const input = {
+      name: formData.name.trim(),
+      location: formData.location,
+      connectionType: formData.connectionType,
+      ipAddress: formData.connectionType === "network" ? formData.ipAddress : undefined,
+      isActive: formData.isActive,
     }
+    const result = editingPrinterId
+      ? await updatePrinterAction({ id: editingPrinterId, ...input })
+      : await createPrinterAction(input)
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    await loadPrinters()
+    toast.success(editingPrinterId ? "Printer settings updated" : "New printer added", {
+      description: `${formData.name} configuration saved successfully.`,
+    })
     setSheetOpen(false)
   }
 
-  function handleDeletePrinter(printer: PrinterDevice) {
-    setPrinters((current) => current.filter((p) => p.id !== printer.id))
+  async function handleDeletePrinter(printer: PrinterDevice) {
+    const result = await deletePrinterAction(printer.id)
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    await loadPrinters()
     toast.success("Printer removed", {
       description: `${printer.name} was removed from the device pool.`,
     })
@@ -489,7 +447,7 @@ export default function PrinterSettingsPage() {
                   )}
                 </div>
 
-                <Select value={connectionFilter} onValueChange={setConnectionFilter}>
+                <Select value={connectionFilter} onValueChange={(value) => setConnectionFilter(value ?? "all")}>
                   <SelectTrigger className="h-10 w-full sm:w-36 text-xs">
                     <SelectValue placeholder="Connection" />
                   </SelectTrigger>

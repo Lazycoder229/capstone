@@ -31,76 +31,10 @@ import {
   Users,
   Tag,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { fetchDashboardMetrics } from "@/app/actions/dashboard";
 
-const metrics = [
-  {
-    label: "Orders today",
-    value: "128",
-    trend: "+12% vs yesterday",
-    icon: ShoppingBag,
-    trendUp: true,
-  },
-  {
-    label: "Payments today",
-    value: "₱32,450",
-    trend: "+8% vs yesterday",
-    icon: CreditCard,
-    trendUp: true,
-  },
-  {
-    label: "Occupied tables",
-    value: "6 / 12",
-    trend: "50% capacity",
-    icon: Table2,
-    trendUp: true,
-  },
-  {
-    label: "Reservations today",
-    value: "9",
-    trend: "2 awaiting confirmation",
-    icon: CalendarCheck,
-    trendUp: false,
-  },
-  {
-    label: "QR orders",
-    value: "76",
-    trend: "flat vs yesterday",
-    icon: QrCode,
-    trendUp: null,
-  },
-];
-
-const liveOrders = [
-  { id: "Table 4", items: "3 items", source: "QR", status: "preparing" },
-  { id: "Counter #22", items: "1 item", source: "Counter", status: "ready" },
-  { id: "Table 9", items: "5 items", source: "QR", status: "pending" },
-  { id: "Table 2", items: "2 items", source: "QR", status: "served" },
-];
-
-const reservations = [
-  { guest: "Santos family", time: "12:30 PM", guests: 4, status: "confirmed" },
-  { guest: "Mia Navarro", time: "1:00 PM", guests: 2, status: "pending" },
-  { guest: "Reyes birthday", time: "6:30 PM", guests: 8, status: "confirmed" },
-];
-
-const topItems = [
-  { name: "Sisig rice bowl", sold: 42 },
-  { name: "Iced tea", sold: 38 },
-  { name: "Lumpia (6pcs)", sold: 31 },
-  { name: "Halo-halo", sold: 27 },
-];
-
-const staffOnShift = [
-  { initials: "JR", role: "Cashier", online: true },
-  { initials: "MC", role: "Kitchen", online: true },
-  { initials: "AL", role: "Waiter", online: false },
-];
-
-const alerts = [
-  { icon: PrinterIcon, text: "Kitchen printer offline", tone: "danger" },
-  { icon: AlertTriangle, text: "3 void requests pending", tone: "warning" },
-  { icon: CalendarCheck, text: "2 reservations need confirmation", tone: "warning" },
-];
+const metricIcons = [ShoppingBag, CreditCard, Table2, CalendarCheck, QrCode];
 
 const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
   pending: "default",
@@ -111,6 +45,25 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
 };
 
 export default function AdminDashboard() {
+  const [metrics, setMetrics] = useState<Array<{ label: string; value: string; trend: string; icon: typeof ShoppingBag; trendUp: boolean | null }>>([]);
+  const [liveOrders, setLiveOrders] = useState<Array<{ id: string; items: string; source: string; status: string }>>([]);
+  const [alerts, setAlerts] = useState<Array<{ icon: typeof AlertTriangle; text: string; tone: "warning" }>>([]);
+
+  useEffect(() => {
+    fetchDashboardMetrics().then((res) => {
+      if (res.success && res.data) {
+        setMetrics(res.data.metrics.map((metric, index) => ({ ...metric, icon: metricIcons[index] })));
+        setLiveOrders(res.data.activeOrders.map((order) => ({
+          id: order.id,
+          items: order.items,
+          source: order.source,
+          status: order.status,
+        })));
+        setAlerts(res.data.lowStockCount > 0 ? [{ icon: AlertTriangle, text: `${res.data.lowStockCount} low stock item(s)`, tone: "warning" }] : []);
+      }
+    });
+  }, []);
+
   return (
     <div className="w-full max-w-full min-w-0 overflow-x-hidden pb-16 sm:pb-8">
       <div className="w-full min-w-0 max-w-full space-y-4 sm:space-y-6">
@@ -251,13 +204,13 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topItems.map((item) => (
-                    <TableRow key={item.name}>
+                  {liveOrders.length === 0 ? <TableRow><TableCell colSpan={2} className="py-8 text-center text-muted-foreground">No live orders.</TableCell></TableRow> : liveOrders.map((item) => (
+                    <TableRow key={item.id}>
                       <TableCell className="py-2.5 pl-4 sm:pl-6 font-medium text-xs sm:text-sm text-foreground">
-                        {item.name}
+                        {item.id}
                       </TableCell>
                       <TableCell className="py-2.5 text-right pr-4 sm:pr-6 text-xs text-muted-foreground font-semibold">
-                        {item.sold} sold
+                        {item.items}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -283,7 +236,9 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {reservations.map((reservation) => (
+                  <TableRow><TableCell colSpan={2} className="py-8 text-center text-muted-foreground">No reservations recorded today.</TableCell></TableRow>
+                  {/* Reservations are not included in the dashboard action contract. */}
+                  {/* {reservations.map((reservation) => (
                     <TableRow key={`${reservation.guest}-${reservation.time}`}>
                       <TableCell className="py-2.5 pl-4 sm:pl-6">
                         <div className="text-xs sm:text-sm font-medium text-foreground">{reservation.guest}</div>
@@ -299,7 +254,7 @@ export default function AdminDashboard() {
                         </Badge>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))} */}
                 </TableBody>
               </Table>
             </CardContent>
@@ -322,7 +277,9 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {staffOnShift.map((staff) => (
+                  <TableRow><TableCell colSpan={2} className="py-8 text-center text-muted-foreground">No staff shift data available.</TableCell></TableRow>
+                  {/* Staff shift data is not included in the dashboard action contract. */}
+                  {/* {staffOnShift.map((staff) => (
                     <TableRow key={staff.initials}>
                       <TableCell className="py-2.5 pl-4 sm:pl-6">
                         <div className="flex items-center gap-2.5">
@@ -345,7 +302,7 @@ export default function AdminDashboard() {
                         </Badge>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))} */}
                 </TableBody>
               </Table>
             </CardContent>
@@ -365,7 +322,7 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {alerts.map((alert) => (
+                  {alerts.length === 0 ? <TableRow><TableCell colSpan={2} className="py-8 text-center text-muted-foreground">No active alerts.</TableCell></TableRow> : alerts.map((alert) => (
                     <TableRow key={alert.text}>
                       <TableCell className="py-2.5 pl-4 sm:pl-6">
                         <div className="flex items-center gap-2">

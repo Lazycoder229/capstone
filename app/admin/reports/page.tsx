@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   ArrowDown,
   ArrowUp,
@@ -72,6 +72,9 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
+
+import { fetchReportsData } from "@/app/actions/reports"
+import { createExpenseAction } from "@/app/actions/expenses"
 
 // ---------------------------------------------------------------------------
 // Types — sourced from orders, payments, payroll, discounts, promotions,
@@ -181,109 +184,14 @@ interface PromoInsight {
   isActive: boolean
 }
 
-// ---------------------------------------------------------------------------
-// Mock Data — mirrors realistic data from the db schema
-// ---------------------------------------------------------------------------
+interface CategoryRevenue {
+  categoryId: string
+  category: string
+  revenue: number
+  quantitySold: number
+}
 
-const DAILY_SALES: DailySalesPoint[] = [
-  { date: "2026-09-11", label: "Sep 11", revenue: 28450, orders: 95, avgOrderValue: 299.47 },
-  { date: "2026-09-12", label: "Sep 12", revenue: 34200, orders: 112, avgOrderValue: 305.36 },
-  { date: "2026-09-13", label: "Sep 13", revenue: 41800, orders: 138, avgOrderValue: 302.90 },
-  { date: "2026-09-14", label: "Sep 14", revenue: 52300, orders: 164, avgOrderValue: 318.90 },
-  { date: "2026-09-15", label: "Sep 15", revenue: 38750, orders: 126, avgOrderValue: 307.54 },
-  { date: "2026-09-16", label: "Sep 16", revenue: 32450, orders: 108, avgOrderValue: 300.46 },
-  { date: "2026-09-17", label: "Sep 17", revenue: 36800, orders: 128, avgOrderValue: 287.50 },
-]
-
-const PAYMENT_BREAKDOWN: PaymentBreakdown[] = [
-  { method: "cash", count: 412, total: 128400, percentage: 48.2 },
-  { method: "gcash", count: 298, total: 89600, percentage: 33.6 },
-  { method: "card", count: 132, total: 42300, percentage: 15.9 },
-  { method: "other", count: 29, total: 6450, percentage: 2.3 },
-]
-
-const ORDER_TYPE_BREAKDOWN: OrderTypeBreakdown[] = [
-  { type: "qr", count: 548, total: 168200, percentage: 63.1 },
-  { type: "counter", count: 323, total: 98550, percentage: 36.9 },
-]
-
-const TOP_SELLING_ITEMS: TopSellingItem[] = [
-  { id: "1", name: "Whole Litson Manok", category: "Litson Manok", quantitySold: 186, revenue: 78120, trend: "up", trendPercent: 12 },
-  { id: "2", name: "Half Litson Manok", category: "Litson Manok", quantitySold: 142, revenue: 32660, trend: "up", trendPercent: 8 },
-  { id: "3", name: "Sisig Rice Bowl", category: "Mains", quantitySold: 128, revenue: 19200, trend: "up", trendPercent: 15 },
-  { id: "4", name: "Java Rice", category: "Sides", quantitySold: 320, revenue: 14400, trend: "flat", trendPercent: 0 },
-  { id: "5", name: "Iced Tea (large)", category: "Beverages", quantitySold: 298, revenue: 10430, trend: "down", trendPercent: 3 },
-  { id: "6", name: "Lumpia (6pcs)", category: "Sides", quantitySold: 184, revenue: 13800, trend: "up", trendPercent: 6 },
-  { id: "7", name: "Halo-Halo", category: "Desserts", quantitySold: 156, revenue: 13260, trend: "up", trendPercent: 22 },
-  { id: "8", name: "Pork BBQ (3 sticks)", category: "Mains", quantitySold: 110, revenue: 13200, trend: "down", trendPercent: 4 },
-]
-
-const STAFF_PERFORMANCE: StaffPerformance[] = [
-  { id: "s1", name: "Juan Reyes", role: "Cashier", ordersProcessed: 342, totalSales: 98400, avgHandlingTime: "2m 14s", voidRate: 1.2 },
-  { id: "s2", name: "Maria Cruz", role: "Cashier", ordersProcessed: 286, totalSales: 82350, avgHandlingTime: "2m 38s", voidRate: 0.7 },
-  { id: "s3", name: "Angelo Santos", role: "Server", ordersProcessed: 198, totalSales: 61200, avgHandlingTime: "3m 05s", voidRate: 2.1 },
-  { id: "s4", name: "Lia Mendoza", role: "Kitchen Lead", ordersProcessed: 45, totalSales: 14800, avgHandlingTime: "1m 50s", voidRate: 0.0 },
-]
-
-const EXPENSE_CATEGORIES: ExpenseCategoryOption[] = [
-  { id: "cat-payroll", name: "Payroll & Wages", color: "#ef4444" },
-  { id: "cat-inventory", name: "Inventory & Supplies", color: "#f59e0b" },
-  { id: "cat-operations", name: "Operations & Utilities", color: "#3b82f6" },
-  { id: "cat-marketing", name: "Marketing & Promotions", color: "#8b5cf6" },
-  { id: "cat-misc", name: "Miscellaneous", color: "#6b7280" },
-]
-
-const INITIAL_EXPENSES: ExpenseRecord[] = [
-  { id: "exp-001", categoryId: "cat-payroll", description: "Regular salaries — Sep 1-15", amount: 47500, expenseDate: "2026-09-15", receiptReference: "PAY-2026-09A", notes: "5 staff bi-monthly", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-15T09:00:00" },
-  { id: "exp-002", categoryId: "cat-payroll", description: "Regular salaries — Sep 16-30", amount: 47500, expenseDate: "2026-09-17", receiptReference: "PAY-2026-09B", notes: "5 staff bi-monthly", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-17T09:00:00" },
-  { id: "exp-003", categoryId: "cat-payroll", description: "Overtime pay — Sep", amount: 12500, expenseDate: "2026-09-17", receiptReference: null, notes: "Kitchen OT for weekend rush", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-17T09:05:00" },
-  { id: "exp-004", categoryId: "cat-payroll", description: "SSS contributions", amount: 8400, expenseDate: "2026-09-15", receiptReference: "SSS-09-2026", notes: null, recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-15T09:10:00" },
-  { id: "exp-005", categoryId: "cat-payroll", description: "PhilHealth contributions", amount: 5600, expenseDate: "2026-09-15", receiptReference: "PH-09-2026", notes: null, recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-15T09:12:00" },
-  { id: "exp-006", categoryId: "cat-payroll", description: "Pag-IBIG contributions", amount: 3000, expenseDate: "2026-09-15", receiptReference: "PAGIBIG-09", notes: null, recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-15T09:15:00" },
-  { id: "exp-007", categoryId: "cat-payroll", description: "13th month accrual", amount: 4000, expenseDate: "2026-09-17", receiptReference: null, notes: "Monthly accrual", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-17T09:20:00" },
-  { id: "exp-008", categoryId: "cat-inventory", description: "Chicken (whole birds) — weekly supply", amount: 32400, expenseDate: "2026-09-14", receiptReference: "SUP-CHK-0914", notes: "90 pcs @ ₱360/pc from Golden Poultry", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-14T07:00:00" },
-  { id: "exp-009", categoryId: "cat-inventory", description: "Rice & grains", amount: 12800, expenseDate: "2026-09-12", receiptReference: "SUP-RICE-0912", notes: "16 sacks premium jasmine", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-12T08:00:00" },
-  { id: "exp-010", categoryId: "cat-inventory", description: "Vegetables & herbs", amount: 8600, expenseDate: "2026-09-13", receiptReference: null, notes: "Palengke run — weekly", recordedByStaffId: "staff-cashier", recordedByStaffName: "Cashier", createdAt: "2026-09-13T06:30:00" },
-  { id: "exp-011", categoryId: "cat-inventory", description: "Cooking oil & condiments", amount: 6200, expenseDate: "2026-09-11", receiptReference: "SUP-OIL-0911", notes: null, recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-11T09:00:00" },
-  { id: "exp-012", categoryId: "cat-inventory", description: "Packaging & take-out containers", amount: 9400, expenseDate: "2026-09-14", receiptReference: "PKG-0914", notes: "Monthly restock", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-14T10:00:00" },
-  { id: "exp-013", categoryId: "cat-inventory", description: "Cleaning supplies", amount: 4200, expenseDate: "2026-09-11", receiptReference: null, notes: null, recordedByStaffId: "staff-cashier", recordedByStaffName: "Cashier", createdAt: "2026-09-11T11:00:00" },
-  { id: "exp-014", categoryId: "cat-inventory", description: "Beverages & desserts stock", amount: 4600, expenseDate: "2026-09-12", receiptReference: "BEV-0912", notes: "Iced tea mix, halo-halo ingredients", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-12T10:00:00" },
-  { id: "exp-015", categoryId: "cat-operations", description: "Electricity — September", amount: 12400, expenseDate: "2026-09-15", receiptReference: "MERALCO-09", notes: null, recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-15T14:00:00" },
-  { id: "exp-016", categoryId: "cat-operations", description: "Water — September", amount: 3200, expenseDate: "2026-09-15", receiptReference: "WATER-09", notes: null, recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-15T14:05:00" },
-  { id: "exp-017", categoryId: "cat-operations", description: "Internet & POS subscription", amount: 3800, expenseDate: "2026-09-11", receiptReference: "ISP-09", notes: "PLDT + POS monthly", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-11T14:10:00" },
-  { id: "exp-018", categoryId: "cat-operations", description: "LPG / Cooking gas", amount: 5400, expenseDate: "2026-09-13", receiptReference: null, notes: "3 tanks", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-13T15:00:00" },
-  { id: "exp-019", categoryId: "cat-marketing", description: "Social media ads — Sep campaign", amount: 3500, expenseDate: "2026-09-11", receiptReference: "FB-ADS-09", notes: "Facebook & Instagram boost", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-11T16:00:00" },
-  { id: "exp-020", categoryId: "cat-marketing", description: "Promo discounts absorbed", amount: 1800, expenseDate: "2026-09-16", receiptReference: null, notes: "Litson Monday promo cost", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-16T17:00:00" },
-  { id: "exp-021", categoryId: "cat-marketing", description: "Flyers & signage reprint", amount: 950, expenseDate: "2026-09-12", receiptReference: "PRINT-0912", notes: null, recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-12T16:00:00" },
-  { id: "exp-022", categoryId: "cat-misc", description: "Equipment maintenance — exhaust fan", amount: 3200, expenseDate: "2026-09-14", receiptReference: null, notes: "Kitchen exhaust cleaning & belt", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-14T11:00:00" },
-  { id: "exp-023", categoryId: "cat-misc", description: "Permit renewals", amount: 2500, expenseDate: "2026-09-11", receiptReference: "PERMIT-09", notes: "Barangay business clearance", recordedByStaffId: "staff-admin", recordedByStaffName: "Admin User", createdAt: "2026-09-11T12:00:00" },
-  { id: "exp-024", categoryId: "cat-misc", description: "Miscellaneous purchases", amount: 1650, expenseDate: "2026-09-16", receiptReference: null, notes: "Office supplies, trash bags", recordedByStaffId: "staff-cashier", recordedByStaffName: "Cashier", createdAt: "2026-09-16T10:00:00" },
-]
-
-const DISCOUNT_INSIGHTS: DiscountInsight[] = [
-  { typeName: "Senior Citizen (20%)", usageCount: 42, totalDiscount: 8640, avgPerOrder: 205.71 },
-  { typeName: "PWD (20%)", usageCount: 18, totalDiscount: 3420, avgPerOrder: 190.00 },
-]
-
-const PROMO_INSIGHTS: PromoInsight[] = [
-  { name: "Litson Monday Blowout", promoType: "percentage", usageCount: 38, usageLimit: 100, totalDiscount: 4560, isActive: true },
-  { name: "Family Bundle Deal", promoType: "fixed_amount", usageCount: 24, usageLimit: 50, totalDiscount: 7200, isActive: true },
-  { name: "Free Iced Tea w/ Sisig", promoType: "buy_x_get_y", usageCount: 65, usageLimit: null, totalDiscount: 2275, isActive: true },
-  { name: "Grand Opening 15%", promoType: "percentage", usageCount: 200, usageLimit: 200, totalDiscount: 28000, isActive: false },
-]
-
-const TRANSACTIONS: TransactionRecord[] = [
-  { id: "tx-1", date: "2026-09-17", time: "10:32 AM", orderNumber: "ORD-1048", type: "qr", tableNumber: "4", customer: "Santos family", items: 3, subtotal: 730, discount: 0, tax: 87.60, total: 817.60, paymentMethod: "gcash", receiptNumber: "RCP-4801", staffName: "Juan Reyes", status: "completed" },
-  { id: "tx-2", date: "2026-09-17", time: "10:45 AM", orderNumber: "ORD-1049", type: "counter", tableNumber: null, customer: "Walk-in", items: 1, subtotal: 420, discount: 84, tax: 40.32, total: 376.32, paymentMethod: "cash", receiptNumber: "RCP-4802", staffName: "Maria Cruz", status: "completed" },
-  { id: "tx-3", date: "2026-09-17", time: "11:02 AM", orderNumber: "ORD-1050", type: "qr", tableNumber: "9", customer: "Mia Navarro", items: 5, subtotal: 1105, discount: 0, tax: 132.60, total: 1237.60, paymentMethod: "card", receiptNumber: "RCP-4803", staffName: "Juan Reyes", status: "completed" },
-  { id: "tx-4", date: "2026-09-17", time: "11:18 AM", orderNumber: "ORD-1051", type: "qr", tableNumber: "2", customer: "Reyes birthday", items: 8, subtotal: 3420, discount: 684, tax: 328.32, total: 3064.32, paymentMethod: "gcash", receiptNumber: "RCP-4804", staffName: "Angelo Santos", status: "completed" },
-  { id: "tx-5", date: "2026-09-17", time: "11:30 AM", orderNumber: "ORD-1052", type: "counter", tableNumber: null, customer: "Walk-in", items: 2, subtotal: 465, discount: 0, tax: 55.80, total: 520.80, paymentMethod: "cash", receiptNumber: "RCP-4805", staffName: "Maria Cruz", status: "completed" },
-  { id: "tx-6", date: "2026-09-17", time: "11:48 AM", orderNumber: "ORD-1053", type: "qr", tableNumber: "7", customer: "Walk-in", items: 4, subtotal: 950, discount: 0, tax: 114, total: 1064, paymentMethod: "gcash", receiptNumber: "RCP-4806", staffName: "Juan Reyes", status: "voided" },
-  { id: "tx-7", date: "2026-09-16", time: "09:15 AM", orderNumber: "ORD-1040", type: "counter", tableNumber: null, customer: "Walk-in", items: 1, subtotal: 230, discount: 0, tax: 27.60, total: 257.60, paymentMethod: "cash", receiptNumber: "RCP-4790", staffName: "Maria Cruz", status: "completed" },
-  { id: "tx-8", date: "2026-09-16", time: "10:05 AM", orderNumber: "ORD-1041", type: "qr", tableNumber: "3", customer: "Walk-in", items: 3, subtotal: 580, discount: 116, tax: 55.68, total: 519.68, paymentMethod: "card", receiptNumber: "RCP-4791", staffName: "Juan Reyes", status: "completed" },
-  { id: "tx-9", date: "2026-09-16", time: "12:30 PM", orderNumber: "ORD-1042", type: "counter", tableNumber: null, customer: "Walk-in", items: 2, subtotal: 510, discount: 0, tax: 61.20, total: 571.20, paymentMethod: "cash", receiptNumber: "RCP-4792", staffName: "Angelo Santos", status: "refunded" },
-  { id: "tx-10", date: "2026-09-15", time: "01:00 PM", orderNumber: "ORD-1035", type: "qr", tableNumber: "5", customer: "Dela Cruz", items: 6, subtotal: 1840, discount: 0, tax: 220.80, total: 2060.80, paymentMethod: "gcash", receiptNumber: "RCP-4785", staffName: "Juan Reyes", status: "completed" },
-]
+const DAILY_SALES: DailySalesPoint[] = []
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -399,7 +307,23 @@ export default function ReportsPage() {
   const [txPaymentFilter, setTxPaymentFilter] = useState("all")
 
   // Expenses state & CRUD
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES)
+  const [expenses, setExpenses] = useState<ExpenseRecord[]>([])
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategoryOption[]>([])
+  const [reportSummary, setReportSummary] = useState({
+    totalRevenue: 0,
+    totalExpenses: 0,
+    netProfit: 0,
+    totalTransactions: 0,
+    profitMargin: 0,
+  })
+  const [paymentBreakdown, setPaymentBreakdown] = useState<PaymentBreakdown[]>([])
+  const [orderTypeBreakdown, setOrderTypeBreakdown] = useState<OrderTypeBreakdown[]>([])
+  const [transactions, setTransactions] = useState<TransactionRecord[]>([])
+  const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([])
+  const [categoryRevenue, setCategoryRevenue] = useState<CategoryRevenue[]>([])
+  const [staffPerformance, setStaffPerformance] = useState<StaffPerformance[]>([])
+  const [discountInsights, setDiscountInsights] = useState<DiscountInsight[]>([])
+  const [promoInsights, setPromoInsights] = useState<PromoInsight[]>([])
   const [expensePage, setExpensePage] = useState(1)
   const [expandedExpense, setExpandedExpense] = useState<string | null>(null)
   const [expenseSearch, setExpenseSearch] = useState("")
@@ -408,7 +332,7 @@ export default function ReportsPage() {
   const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null)
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null)
   const [expenseForm, setExpenseForm] = useState<ExpenseFormValues>({
-    categoryId: "cat-inventory",
+    categoryId: "",
     description: "",
     amount: 0,
     expenseDate: new Date().toISOString().split("T")[0],
@@ -420,13 +344,56 @@ export default function ReportsPage() {
   // Detail sheet
   const [detailTx, setDetailTx] = useState<TransactionRecord | null>(null)
 
+  useEffect(() => {
+    const loadReports = async () => {
+      const result = await fetchReportsData()
+      if (!result.success) {
+        toast.error(result.error)
+        return
+      }
+
+      setReportSummary(result.data.summary)
+      setPaymentBreakdown(result.data.paymentBreakdown as PaymentBreakdown[])
+      setOrderTypeBreakdown(result.data.orderTypeBreakdown as OrderTypeBreakdown[])
+      setTransactions(result.data.transactions as TransactionRecord[])
+      setTopSellingItems(result.data.topSellingItems as TopSellingItem[])
+      setCategoryRevenue(result.data.categoryRevenue as CategoryRevenue[])
+      setStaffPerformance(result.data.staffPerformance as StaffPerformance[])
+      setDiscountInsights(result.data.discountInsights as DiscountInsight[])
+      setPromoInsights(result.data.promoInsights as PromoInsight[])
+      setExpenses(
+        result.data.expenses.map((expense) => ({
+          id: expense.id,
+          categoryId: expense.categoryId,
+          description: expense.description,
+          amount: expense.amount,
+          expenseDate: expense.expenseDate,
+          receiptReference: expense.receiptReference,
+          notes: expense.notes,
+          recordedByStaffId: expense.recordedByStaffId,
+          recordedByStaffName: "Staff",
+          createdAt: String(expense.createdAt || expense.expenseDate),
+        }))
+      )
+      setExpenseCategories(
+        result.data.categories.map((category, index) => ({
+          id: category.id,
+          name: category.name,
+          color: ["#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#6b7280"][index % 5],
+        }))
+      )
+    }
+
+    void loadReports()
+  }, [])
+
   // ---------------------------------------------------------------------------
   // Handlers — Expenses CRUD
   // ---------------------------------------------------------------------------
   const handleOpenAddExpense = () => {
     setEditingExpense(null)
     setExpenseForm({
-      categoryId: "cat-inventory",
+      categoryId: "",
       description: "",
       amount: 0,
       expenseDate: new Date().toISOString().split("T")[0],
@@ -451,7 +418,7 @@ export default function ReportsPage() {
     setIsExpenseSheetOpen(true)
   }
 
-  const handleSaveExpense = (e: React.FormEvent) => {
+  const handleSaveExpense = async (e: React.FormEvent) => {
     e.preventDefault()
     const errors: Record<string, string> = {}
     if (!expenseForm.description.trim()) {
@@ -484,23 +451,41 @@ export default function ReportsPage() {
             : item
         )
       )
-      toast.success("Expense updated successfully")
+      toast.info("Expense changes are local only; expense updates are not supported by the current backend contract.")
     } else {
-      const newRecord: ExpenseRecord = {
-        id: `exp-${Date.now()}`,
+      const result = await createExpenseAction({
         categoryId: expenseForm.categoryId,
         description: expenseForm.description.trim(),
         amount: Number(expenseForm.amount),
         expenseDate: expenseForm.expenseDate,
-        receiptReference: expenseForm.receiptReference?.trim() || null,
-        notes: expenseForm.notes?.trim() || null,
-        recordedByStaffId: "staff-admin",
-        recordedByStaffName: "Admin User",
-        createdAt: new Date().toISOString(),
+        receiptReference: expenseForm.receiptReference?.trim() || undefined,
+        notes: expenseForm.notes?.trim() || undefined,
+        recordedByStaffId: crypto.randomUUID(),
+      })
+      if (!result.success) {
+        toast.error(result.error)
+        return
       }
-      setExpenses((prev) => [newRecord, ...prev])
+      const refreshed = await fetchReportsData()
+      if (!refreshed.success) {
+        toast.error(refreshed.error)
+        return
+      }
+      setReportSummary(refreshed.data.summary)
+      setExpenses(refreshed.data.expenses.map((expense) => ({
+        id: expense.id,
+        categoryId: expense.categoryId,
+        description: expense.description,
+        amount: expense.amount,
+        expenseDate: expense.expenseDate,
+        receiptReference: expense.receiptReference,
+        notes: expense.notes,
+        recordedByStaffId: expense.recordedByStaffId,
+        recordedByStaffName: "Staff",
+        createdAt: String(expense.createdAt || expense.expenseDate),
+      })))
       setExpensePage(1)
-      toast.success("Expense recorded successfully")
+      toast.success(result.data.message)
     }
 
     setIsExpenseSheetOpen(false)
@@ -515,22 +500,22 @@ export default function ReportsPage() {
       return next
     })
     setDeletingExpenseId(null)
-    toast.success("Expense deleted")
+    toast.info("Expense removed locally; expense deletion is not supported by the current backend contract.")
   }
 
   // ---------------------------------------------------------------------------
   // Computed — Sales
   // ---------------------------------------------------------------------------
   const salesSummary = useMemo(() => {
-    const totalRevenue = DAILY_SALES.reduce((s, d) => s + d.revenue, 0)
-    const totalOrders = DAILY_SALES.reduce((s, d) => s + d.orders, 0)
+    const totalRevenue = reportSummary.totalRevenue
+    const totalOrders = reportSummary.totalTransactions
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
-    const totalDiscounts = DISCOUNT_INSIGHTS.reduce((s, d) => s + d.totalDiscount, 0) + PROMO_INSIGHTS.reduce((s, p) => s + p.totalDiscount, 0)
-    const totalVoids = TRANSACTIONS.filter((t) => t.status === "voided").reduce((s, t) => s + t.total, 0)
-    const completedTx = TRANSACTIONS.filter((t) => t.status === "completed")
+    const totalDiscounts = discountInsights.reduce((s, d) => s + d.totalDiscount, 0) + promoInsights.reduce((s, p) => s + p.totalDiscount, 0)
+    const totalVoids = transactions.filter((t) => t.status === "voided").reduce((s, t) => s + t.total, 0)
+    const completedTx = transactions.filter((t) => t.status === "completed")
     const totalTax = completedTx.reduce((s, t) => s + t.tax, 0)
     return { totalRevenue, totalOrders, avgOrderValue, totalDiscounts, totalVoids, totalTax }
-  }, [])
+  }, [reportSummary, transactions, discountInsights, promoInsights])
 
   const maxDailyRevenue = useMemo(() => Math.max(...DAILY_SALES.map((d) => d.revenue)), [])
 
@@ -542,7 +527,7 @@ export default function ReportsPage() {
   const profitMargin = useMemo(() => (salesSummary.totalRevenue > 0 ? (netProfit / salesSummary.totalRevenue) * 100 : 0), [netProfit, salesSummary.totalRevenue])
 
   const expenseCategoriesSummary = useMemo(() => {
-    return EXPENSE_CATEGORIES.map((cat) => {
+    return expenseCategories.map((cat) => {
       const items = expenses.filter((e) => e.categoryId === cat.id)
       const amount = items.reduce((s, i) => s + i.amount, 0)
       const percentage = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0
@@ -555,7 +540,7 @@ export default function ReportsPage() {
         items: items.map((i) => ({ label: i.description, amount: i.amount })),
       }
     })
-  }, [expenses, totalExpenses])
+  }, [expenseCategories, expenses, totalExpenses])
 
   const maxCategoryExpense = useMemo(() => Math.max(...expenseCategoriesSummary.map((c) => c.amount), 1), [expenseCategoriesSummary])
 
@@ -586,7 +571,7 @@ export default function ReportsPage() {
   // Computed — Transactions
   // ---------------------------------------------------------------------------
   const filteredTransactions = useMemo(() => {
-    let list = [...TRANSACTIONS]
+    let list = [...transactions]
     if (txStatusFilter !== "all") list = list.filter((t) => t.status === txStatusFilter)
     if (txPaymentFilter !== "all") list = list.filter((t) => t.paymentMethod === txPaymentFilter)
     if (search.trim()) {
@@ -600,7 +585,7 @@ export default function ReportsPage() {
       )
     }
     return list
-  }, [txStatusFilter, txPaymentFilter, search])
+  }, [transactions, txStatusFilter, txPaymentFilter, search])
 
   const txTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE))
   const paginatedTx = filteredTransactions.slice((txPage - 1) * PAGE_SIZE, txPage * PAGE_SIZE)
@@ -668,12 +653,12 @@ export default function ReportsPage() {
             {/* Metric Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                { label: "Total Revenue", value: formatCompact(salesSummary.totalRevenue), icon: DollarSign, trend: "+8.4%", up: true, color: "text-emerald-600 dark:text-emerald-400" },
-                { label: "Total Orders", value: salesSummary.totalOrders.toString(), icon: ShoppingBag, trend: "+12%", up: true, color: "text-amber-600 dark:text-amber-400" },
-                { label: "Avg Order Value", value: formatPeso(salesSummary.avgOrderValue), icon: Receipt, trend: "+2.1%", up: true, color: "text-sky-600 dark:text-sky-400" },
+                { label: "Total Revenue", value: formatCompact(salesSummary.totalRevenue), icon: DollarSign, trend: "No comparison data", up: null as boolean | null, color: "text-emerald-600 dark:text-emerald-400" },
+                { label: "Total Orders", value: salesSummary.totalOrders.toString(), icon: ShoppingBag, trend: "No comparison data", up: null as boolean | null, color: "text-amber-600 dark:text-amber-400" },
+                { label: "Avg Order Value", value: formatPeso(salesSummary.avgOrderValue), icon: Receipt, trend: "No comparison data", up: null as boolean | null, color: "text-sky-600 dark:text-sky-400" },
                 { label: "Discounts Given", value: formatCompact(salesSummary.totalDiscounts), icon: BadgePercent, trend: "—", up: null as boolean | null, color: "text-orange-600 dark:text-orange-400" },
-                { label: "Voids / Refunds", value: formatCompact(salesSummary.totalVoids), icon: XCircle, trend: "1.2%", up: false, color: "text-rose-600 dark:text-rose-400" },
-                { label: "Tax Collected", value: formatCompact(salesSummary.totalTax), icon: FileText, trend: "+7.8%", up: true, color: "text-violet-600 dark:text-violet-400" },
+                { label: "Voids / Refunds", value: formatCompact(salesSummary.totalVoids), icon: XCircle, trend: "No comparison data", up: null as boolean | null, color: "text-rose-600 dark:text-rose-400" },
+                { label: "Tax Collected", value: formatCompact(salesSummary.totalTax), icon: FileText, trend: "No comparison data", up: null as boolean | null, color: "text-violet-600 dark:text-violet-400" },
               ].map((m) => (
                 <Card key={m.label} className="border bg-card shadow-xs">
                   <CardContent className="p-3 sm:p-4 space-y-1">
@@ -685,7 +670,7 @@ export default function ReportsPage() {
                     <div className={`text-[10px] sm:text-xs font-medium ${m.up === true ? "text-emerald-600 dark:text-emerald-400" : m.up === false ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}>
                       {m.up === true && <TrendingUp className="size-3 inline mr-0.5" />}
                       {m.up === false && <TrendingDown className="size-3 inline mr-0.5" />}
-                      {m.trend} vs prev period
+                      {m.trend}
                     </div>
                   </CardContent>
                 </Card>
@@ -703,10 +688,9 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent className="p-4 pt-2">
                   <MiniBarChart data={DAILY_SALES} maxVal={maxDailyRevenue} />
-                  <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span>Sep 11</span>
-                    <span>Sep 17 (Today)</span>
-                  </div>
+                  {DAILY_SALES.length === 0 && (
+                    <p className="mt-3 text-center text-xs text-muted-foreground">No sales data available.</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -719,7 +703,7 @@ export default function ReportsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-2 space-y-3">
-                  {PAYMENT_BREAKDOWN.map((pb) => (
+                  {paymentBreakdown.map((pb) => (
                     <DonutSegment
                       key={pb.method}
                       percentage={pb.percentage}
@@ -731,7 +715,7 @@ export default function ReportsPage() {
                   <div className="pt-2 border-t border-border">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold">Total</span>
-                      <span className="font-bold">{formatCompact(PAYMENT_BREAKDOWN.reduce((s, p) => s + p.total, 0))}</span>
+                      <span className="font-bold">{formatCompact(paymentBreakdown.reduce((s, p) => s + p.total, 0))}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -740,7 +724,7 @@ export default function ReportsPage() {
 
             {/* Order Source Breakdown */}
             <div className="grid gap-4 sm:grid-cols-2">
-              {ORDER_TYPE_BREAKDOWN.map((ob) => (
+              {orderTypeBreakdown.map((ob) => (
                 <Card key={ob.type} className="border bg-card shadow-xs">
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className={`size-12 rounded-xl flex items-center justify-center ${ob.type === "qr" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-sky-500/10 text-sky-600 dark:text-sky-400"}`}>
@@ -865,7 +849,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Categories ({expenses.length})</SelectItem>
-                      {EXPENSE_CATEGORIES.map((cat) => {
+                      {expenseCategories.map((cat) => {
                         const count = expenses.filter((e) => e.categoryId === cat.id).length
                         return (
                           <SelectItem key={cat.id} value={cat.id}>
@@ -905,7 +889,7 @@ export default function ReportsPage() {
                           </tr>
                         ) : (
                           paginatedExpenses.map((exp) => {
-                            const cat = EXPENSE_CATEGORIES.find((c) => c.id === exp.categoryId)
+                            const cat = expenseCategories.find((c) => c.id === exp.categoryId)
                             return (
                               <tr key={exp.id} className="hover:bg-muted/30 transition-colors">
                                 <td className="py-2.5 px-3 font-medium whitespace-nowrap">{exp.expenseDate}</td>
@@ -1113,7 +1097,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent className="p-4 pt-2">
                   <div className="space-y-2">
-                    {TOP_SELLING_ITEMS.map((item, idx) => (
+                    {topSellingItems.map((item, idx) => (
                       <div
                         key={item.id}
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors"
@@ -1150,7 +1134,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent className="p-4 pt-2">
                   <div className="space-y-3">
-                    {STAFF_PERFORMANCE.map((staff) => (
+                    {staffPerformance.map((staff) => (
                       <div key={staff.id} className="p-3 border border-border rounded-lg space-y-2">
                         <div className="flex items-center justify-between">
                           <div>
@@ -1194,7 +1178,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent className="p-4 pt-2">
                   <div className="space-y-3">
-                    {DISCOUNT_INSIGHTS.map((d) => (
+                    {discountInsights.map((d) => (
                       <div key={d.typeName} className="p-3 border border-border rounded-lg flex items-center gap-3">
                         <div className="size-10 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
                           <BadgePercent className="size-5" />
@@ -1223,7 +1207,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent className="p-4 pt-2">
                   <div className="space-y-2.5">
-                    {PROMO_INSIGHTS.map((p) => (
+                    {promoInsights.map((p) => (
                       <div key={p.name} className="p-3 border border-border rounded-lg space-y-1.5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -1262,23 +1246,20 @@ export default function ReportsPage() {
                   Revenue by Category
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-4 pt-2 space-y-3">
-                {[
-                  { label: "Litson Manok", value: 110780, color: "bg-amber-500" },
-                  { label: "Mains", value: 32400, color: "bg-sky-500" },
-                  { label: "Sides", value: 28200, color: "bg-emerald-500" },
-                  { label: "Beverages", value: 16800, color: "bg-violet-500" },
-                  { label: "Desserts", value: 13260, color: "bg-rose-500" },
-                ].map((cat) => (
-                  <HorizontalBar
-                    key={cat.label}
-                    label={cat.label}
-                    value={cat.value}
-                    maxValue={110780}
-                    color={cat.color}
-                    amount={formatPeso(cat.value)}
-                  />
-                ))}
+              <CardContent className="p-4 pt-2">
+                <div className="space-y-3">
+                  {categoryRevenue.map((item) => (
+                    <HorizontalBar
+                      key={item.categoryId}
+                      label={`${item.category} (${item.quantitySold} sold)`}
+                      value={item.revenue}
+                      maxValue={Math.max(...categoryRevenue.map((category) => category.revenue), 1)}
+                      color="bg-emerald-500"
+                      amount={formatPeso(item.revenue)}
+                    />
+                  ))}
+                  {categoryRevenue.length === 0 && <p className="text-sm text-muted-foreground">No category sales data available.</p>}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1568,7 +1549,7 @@ export default function ReportsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXPENSE_CATEGORIES.map((cat) => (
+                  {expenseCategories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       <div className="flex items-center gap-2">
                         <span className="size-2 rounded-full" style={{ backgroundColor: cat.color }} />

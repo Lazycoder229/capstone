@@ -57,6 +57,11 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Toaster } from "@/components/ui/sonner"
+import {
+  createVoidAction,
+  fetchVoids,
+  resolveVoidAction,
+} from "@/app/actions/voids"
 
 // ---------------------------------------------------------------------------
 // Types — mirrors `order_voids` and related tables in `dbdesign.md`
@@ -112,13 +117,7 @@ export interface RecentOrderOption {
 // Reference Data
 // ---------------------------------------------------------------------------
 
-const STAFF_MEMBERS = [
-  { id: "staff-owner", name: "Carlos Mendoza (Owner)", role: "Owner" },
-  { id: "staff-mgr", name: "Maria Santos (Manager)", role: "Manager" },
-  { id: "staff-cashier1", name: "Juan Dela Cruz (Cashier)", role: "Cashier" },
-  { id: "staff-cashier2", name: "Ana Reyes (Cashier)", role: "Cashier" },
-  { id: "staff-waiter", name: "Mark Ramos (Staff)", role: "Staff" },
-]
+const STAFF_MEMBERS: { id: string; name: string; role: string }[] = []
 
 const QUICK_REASONS = [
   "Customer changed mind / cancelled",
@@ -127,157 +126,6 @@ const QUICK_REASONS = [
   "Customer walkout / no payment",
   "Payment method error / repunch required",
   "Food quality or preparation dispute",
-]
-
-const MOCK_RECENT_ORDERS: RecentOrderOption[] = [
-  {
-    id: "ord-101",
-    orderNumber: "ORD-20260917-009",
-    tableNumber: "Table 4",
-    orderType: "counter",
-    subtotal: 580,
-    discount: 0,
-    tax: 0,
-    total: 580,
-    createdAt: "2026-09-17T10:15:00",
-    items: [
-      { name: "Whole Litson Manok", quantity: 1, unitPrice: 420, subtotal: 420 },
-      { name: "Java Rice", quantity: 2, unitPrice: 45, subtotal: 90 },
-      { name: "Iced Tea", quantity: 2, unitPrice: 35, subtotal: 70 },
-    ],
-  },
-  {
-    id: "ord-102",
-    orderNumber: "ORD-20260917-010",
-    tableNumber: "Table 2",
-    orderType: "qr",
-    subtotal: 460,
-    discount: 0,
-    tax: 0,
-    total: 460,
-    createdAt: "2026-09-17T10:25:00",
-    items: [
-      { name: "Half Litson Manok", quantity: 2, unitPrice: 230, subtotal: 460 },
-    ],
-  },
-  {
-    id: "ord-103",
-    orderNumber: "ORD-20260917-011",
-    tableNumber: "Takeout / Counter",
-    orderType: "counter",
-    subtotal: 195,
-    discount: 0,
-    tax: 0,
-    total: 195,
-    createdAt: "2026-09-17T10:30:00",
-    items: [
-      { name: "Lumpia", quantity: 1, unitPrice: 75, subtotal: 75 },
-      { name: "Halo-halo", quantity: 1, unitPrice: 85, subtotal: 85 },
-      { name: "Iced Tea", quantity: 1, unitPrice: 35, subtotal: 35 },
-    ],
-  },
-]
-
-const INITIAL_VOIDS: OrderVoidItem[] = [
-  {
-    id: "void-001",
-    orderId: "ord-089",
-    orderNumber: "ORD-20260917-005",
-    tableNumber: "Table 6",
-    orderType: "qr",
-    orderSubtotal: 840,
-    orderDiscount: 0,
-    orderTax: 0,
-    orderTotal: 840,
-    orderCreatedAt: "2026-09-17T09:10:00",
-    items: [
-      { name: "Whole Litson Manok", quantity: 2, unitPrice: 420, subtotal: 840 },
-    ],
-    requestedByStaffId: "staff-cashier1",
-    requestedByStaffName: "Juan Dela Cruz (Cashier)",
-    approvedByStaffId: null,
-    approvedByStaffName: null,
-    reason: "Customer ordered twice by accident via QR code on Table 6. Kitchen was notified immediately.",
-    resolutionNotes: null,
-    status: "pending",
-    requestedAt: "2026-09-17T09:14:00",
-    resolvedAt: null,
-  },
-  {
-    id: "void-002",
-    orderId: "ord-084",
-    orderNumber: "ORD-20260917-002",
-    tableNumber: "Table 1",
-    orderType: "counter",
-    orderSubtotal: 345,
-    orderDiscount: 20,
-    orderTax: 0,
-    orderTotal: 325,
-    orderCreatedAt: "2026-09-17T08:30:00",
-    items: [
-      { name: "Half Litson Manok", quantity: 1, unitPrice: 230, subtotal: 230 },
-      { name: "Halo-halo", quantity: 1, unitPrice: 85, subtotal: 85 },
-      { name: "Java Rice", quantity: 1, unitPrice: 45, subtotal: 45 },
-    ],
-    requestedByStaffId: "staff-cashier2",
-    requestedByStaffName: "Ana Reyes (Cashier)",
-    approvedByStaffId: "staff-mgr",
-    approvedByStaffName: "Maria Santos (Manager)",
-    reason: "Guest had emergency call and needed to leave before order was prepared.",
-    resolutionNotes: "Verified kitchen had not roasted fresh cuts yet. Full void approved.",
-    status: "approved",
-    requestedAt: "2026-09-17T08:35:00",
-    resolvedAt: "2026-09-17T08:38:00",
-  },
-  {
-    id: "void-003",
-    orderId: "ord-078",
-    orderNumber: "ORD-20260916-042",
-    tableNumber: "Table 3",
-    orderType: "counter",
-    orderSubtotal: 510,
-    orderDiscount: 0,
-    orderTax: 0,
-    orderTotal: 510,
-    orderCreatedAt: "2026-09-16T19:40:00",
-    items: [
-      { name: "Whole Litson Manok", quantity: 1, unitPrice: 420, subtotal: 420 },
-      { name: "Java Rice", quantity: 2, unitPrice: 45, subtotal: 90 },
-    ],
-    requestedByStaffId: "staff-waiter",
-    requestedByStaffName: "Mark Ramos (Staff)",
-    approvedByStaffId: "staff-owner",
-    approvedByStaffName: "Carlos Mendoza (Owner)",
-    reason: "Customer complained about delay after 10 minutes and asked to cancel.",
-    resolutionNotes: "Dish was already served to table and half consumed. Void rejected; 10% courtesy discount offered instead.",
-    status: "rejected",
-    requestedAt: "2026-09-16T19:55:00",
-    resolvedAt: "2026-09-16T20:02:00",
-  },
-  {
-    id: "void-004",
-    orderId: "ord-065",
-    orderNumber: "ORD-20260916-028",
-    tableNumber: "Takeout / Counter",
-    orderType: "counter",
-    orderSubtotal: 105,
-    orderDiscount: 0,
-    orderTax: 0,
-    orderTotal: 105,
-    orderCreatedAt: "2026-09-16T14:10:00",
-    items: [
-      { name: "Iced Tea", quantity: 3, unitPrice: 35, subtotal: 105 },
-    ],
-    requestedByStaffId: "staff-cashier1",
-    requestedByStaffName: "Juan Dela Cruz (Cashier)",
-    approvedByStaffId: "staff-mgr",
-    approvedByStaffName: "Maria Santos (Manager)",
-    reason: "Entered as 3 iced teas instead of 3 mineral waters on counter POS.",
-    resolutionNotes: "Voided and repunched with correct item sku.",
-    status: "approved",
-    requestedAt: "2026-09-16T14:12:00",
-    resolvedAt: "2026-09-16T14:15:00",
-  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -317,7 +165,7 @@ const PAGE_SIZE = 8
 // ---------------------------------------------------------------------------
 
 export default function VoidsPage() {
-  const [voids, setVoids] = useState<OrderVoidItem[]>(INITIAL_VOIDS)
+  const [voids, setVoids] = useState<OrderVoidItem[]>([])
   const [selectedStatusTab, setSelectedStatusTab] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
@@ -329,19 +177,66 @@ export default function VoidsPage() {
   // Action Dialog States
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false)
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false)
-  const [actingStaffId, setActingStaffId] = useState("staff-mgr")
+  const [actingStaffId, setActingStaffId] = useState("")
   const [resolutionNotes, setResolutionNotes] = useState("")
 
   // Create Void Form State
-  const [selectedOrderForVoid, setSelectedOrderForVoid] = useState<RecentOrderOption>(
-    MOCK_RECENT_ORDERS[0],
-  )
-  const [createStaffId, setCreateStaffId] = useState("staff-cashier1")
+  const [selectedOrderForVoid, setSelectedOrderForVoid] = useState<RecentOrderOption | null>(null)
+  const [createStaffId, setCreateStaffId] = useState("")
   const [createReason, setCreateReason] = useState("")
 
   useEffect(() => {
     setCurrentPage(1)
   }, [selectedStatusTab, searchQuery])
+
+  useEffect(() => {
+    void loadVoids()
+  }, [])
+
+  async function loadVoids() {
+    const result = await fetchVoids()
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    setVoids(result.data.map((item) => ({
+      id: item.id,
+      orderId: item.orderId,
+      orderNumber: item.orderNumber,
+      tableNumber: null,
+      orderType: "counter",
+      orderTotal: item.amount,
+      orderSubtotal: item.amount,
+      orderDiscount: 0,
+      orderTax: 0,
+      orderCreatedAt: item.requestedAt,
+      items: [],
+      requestedByStaffId: "",
+      requestedByStaffName: item.requestedBy,
+      approvedByStaffId: null,
+      approvedByStaffName: null,
+      reason: item.reason,
+      resolutionNotes: null,
+      status: item.status as VoidStatus,
+      requestedAt: item.requestedAt,
+      resolvedAt: item.resolvedAt,
+    })))
+  }
+
+  const recentOrders = useMemo<RecentOrderOption[]>(() => {
+    return voids.map((item) => ({
+      id: item.orderId,
+      orderNumber: item.orderNumber,
+      tableNumber: item.tableNumber,
+      orderType: item.orderType,
+      total: item.orderTotal,
+      subtotal: item.orderSubtotal,
+      discount: item.orderDiscount,
+      tax: item.orderTax,
+      createdAt: item.orderCreatedAt,
+      items: item.items,
+    }))
+  }, [voids])
 
   // ---- Summary Metrics ----
   const counts = useMemo(() => {
@@ -394,65 +289,46 @@ export default function VoidsPage() {
 
   function handleOpenCreate() {
     setCreateReason("")
-    setSelectedOrderForVoid(MOCK_RECENT_ORDERS[0])
-    setCreateStaffId("staff-cashier1")
+    setSelectedOrderForVoid(recentOrders[0] ?? null)
+    setCreateStaffId("")
     setCreateSheetOpen(true)
   }
 
-  function handleCreateVoid() {
-    if (!createReason.trim()) {
+  async function handleCreateVoid() {
+    if (!selectedOrderForVoid || !createReason.trim()) {
       toast.error("Please provide a reason for the void request")
       return
     }
-
-    const staffObj = STAFF_MEMBERS.find((s) => s.id === createStaffId)
-    const newVoid: OrderVoidItem = {
-      id: crypto.randomUUID(),
+    const result = await createVoidAction({
       orderId: selectedOrderForVoid.id,
-      orderNumber: selectedOrderForVoid.orderNumber,
-      tableNumber: selectedOrderForVoid.tableNumber,
-      orderType: selectedOrderForVoid.orderType,
-      orderSubtotal: selectedOrderForVoid.subtotal,
-      orderDiscount: selectedOrderForVoid.discount,
-      orderTax: selectedOrderForVoid.tax,
-      orderTotal: selectedOrderForVoid.total,
-      orderCreatedAt: selectedOrderForVoid.createdAt,
-      items: selectedOrderForVoid.items,
       requestedByStaffId: createStaffId,
-      requestedByStaffName: staffObj?.name ?? "Staff",
-      approvedByStaffId: null,
-      approvedByStaffName: null,
       reason: createReason.trim(),
-      resolutionNotes: null,
-      status: "pending",
-      requestedAt: new Date().toISOString(),
-      resolvedAt: null,
+    })
+    if (!result.success) {
+      toast.error(result.error)
+      return
     }
-
-    setVoids((current) => [newVoid, ...current])
+    await loadVoids()
     toast.success("Void request submitted", {
       description: `Request for ${selectedOrderForVoid.orderNumber} is pending manager review.`,
     })
     setCreateSheetOpen(false)
   }
 
-  function handleApproveVoid() {
+  async function handleApproveVoid() {
     if (!selectedVoid) return
-    const approver = STAFF_MEMBERS.find((s) => s.id === actingStaffId)
-
-    const updated: OrderVoidItem = {
-      ...selectedVoid,
-      status: "approved",
+    const result = await resolveVoidAction({
+      voidId: selectedVoid.id,
       approvedByStaffId: actingStaffId,
-      approvedByStaffName: approver?.name ?? "Manager",
-      resolvedAt: new Date().toISOString(),
-      resolutionNotes: resolutionNotes.trim() || "Approved by management.",
+      status: "approved",
+      resolutionNotes: resolutionNotes.trim() || null,
+    })
+    if (!result.success) {
+      toast.error(result.error)
+      return
     }
-
-    setVoids((current) =>
-      current.map((v) => (v.id === selectedVoid.id ? updated : v)),
-    )
-    setSelectedVoid(updated)
+    await loadVoids()
+    setSelectedVoid(null)
     setApprovalDialogOpen(false)
     setResolutionNotes("")
     toast.success("Order void approved", {
@@ -460,27 +336,24 @@ export default function VoidsPage() {
     })
   }
 
-  function handleRejectVoid() {
+  async function handleRejectVoid() {
     if (!selectedVoid) return
     if (!resolutionNotes.trim()) {
       toast.error("Please provide a reason for rejecting the void")
       return
     }
-    const approver = STAFF_MEMBERS.find((s) => s.id === actingStaffId)
-
-    const updated: OrderVoidItem = {
-      ...selectedVoid,
-      status: "rejected",
+    const result = await resolveVoidAction({
+      voidId: selectedVoid.id,
       approvedByStaffId: actingStaffId,
-      approvedByStaffName: approver?.name ?? "Manager",
-      resolvedAt: new Date().toISOString(),
+      status: "rejected",
       resolutionNotes: resolutionNotes.trim(),
+    })
+    if (!result.success) {
+      toast.error(result.error)
+      return
     }
-
-    setVoids((current) =>
-      current.map((v) => (v.id === selectedVoid.id ? updated : v)),
-    )
-    setSelectedVoid(updated)
+    await loadVoids()
+    setSelectedVoid(null)
     setRejectionDialogOpen(false)
     setResolutionNotes("")
     toast.error("Void request rejected", {
@@ -883,9 +756,9 @@ export default function VoidsPage() {
             <div className="grid gap-1.5">
               <Label className="text-xs font-semibold">Select Target Order</Label>
               <Select
-                value={selectedOrderForVoid.id}
+                value={selectedOrderForVoid?.id ?? ""}
                 onValueChange={(val) => {
-                  const ord = MOCK_RECENT_ORDERS.find((o) => o.id === val)
+                  const ord = recentOrders.find((o) => o.id === val)
                   if (ord) setSelectedOrderForVoid(ord)
                 }}
               >
@@ -893,7 +766,7 @@ export default function VoidsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MOCK_RECENT_ORDERS.map((ord) => (
+                  {recentOrders.map((ord) => (
                     <SelectItem key={ord.id} value={ord.id}>
                       {ord.orderNumber} — {ord.tableNumber ?? "Counter"} ({formatCurrency(ord.total)})
                     </SelectItem>
@@ -907,14 +780,14 @@ export default function VoidsPage() {
               <div className="flex justify-between font-semibold">
                 <span>Order Total:</span>
                 <span className="text-amber-600 font-bold">
-                  {formatCurrency(selectedOrderForVoid.total)}
+                  {formatCurrency(selectedOrderForVoid?.total ?? 0)}
                 </span>
               </div>
               <p className="text-muted-foreground">
-                Placed at {formatDateTime(selectedOrderForVoid.createdAt)}
+                Placed at {selectedOrderForVoid ? formatDateTime(selectedOrderForVoid.createdAt) : "—"}
               </p>
               <div className="divide-y divide-border/40 pt-1">
-                {selectedOrderForVoid.items.map((it, i) => (
+                {(selectedOrderForVoid?.items ?? []).map((it, i) => (
                   <div key={i} className="flex justify-between py-1 text-muted-foreground">
                     <span>{it.quantity}x {it.name}</span>
                     <span>{formatCurrency(it.subtotal)}</span>
@@ -926,7 +799,7 @@ export default function VoidsPage() {
             {/* Requesting Staff Member */}
             <div className="grid gap-1.5">
               <Label className="text-xs font-semibold">Requested by Staff</Label>
-              <Select value={createStaffId} onValueChange={setCreateStaffId}>
+              <Select value={createStaffId} onValueChange={(value) => setCreateStaffId(value ?? "")}>
                 <SelectTrigger className="h-10 text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -1011,7 +884,7 @@ export default function VoidsPage() {
           <div className="space-y-3 py-2 text-sm">
             <div className="grid gap-1.5">
               <Label className="text-xs font-semibold">Authorizing Manager / Owner</Label>
-              <Select value={actingStaffId} onValueChange={setActingStaffId}>
+              <Select value={actingStaffId} onValueChange={(value) => setActingStaffId(value ?? "")}>
                 <SelectTrigger className="h-10 text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -1071,7 +944,7 @@ export default function VoidsPage() {
           <div className="space-y-3 py-2 text-sm">
             <div className="grid gap-1.5">
               <Label className="text-xs font-semibold">Deciding Manager / Owner</Label>
-              <Select value={actingStaffId} onValueChange={setActingStaffId}>
+              <Select value={actingStaffId} onValueChange={(value) => setActingStaffId(value ?? "")}>
                 <SelectTrigger className="h-10 text-sm">
                   <SelectValue />
                 </SelectTrigger>

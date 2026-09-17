@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   CalendarDays,
   Check,
@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   Eye,
+  Loader2,
   Pencil,
   Plus,
   Search,
@@ -52,6 +53,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Toaster } from "@/components/ui/sonner"
+import {
+  createReservationAction,
+  deleteReservationAction,
+  fetchReservations,
+  updateReservationAction,
+} from "@/app/actions/reservations"
 
 // ---------------------------------------------------------------------------
 // Types — mirrors `reservations` table in the DB design
@@ -82,33 +89,22 @@ interface Reservation {
 
 type ReservationForm = Omit<Reservation, "id">
 
-// ---------------------------------------------------------------------------
-// Reference data (mirrors FK lookup lists used in existing pages)
-// ---------------------------------------------------------------------------
+type CustomerOption = {
+  id: string
+  label: string
+}
 
-const tables = [
-  { id: "table-1", label: "Table 1", capacity: 2 },
-  { id: "table-2", label: "Table 2", capacity: 4 },
-  { id: "table-4", label: "Table 4", capacity: 4 },
-  { id: "table-6", label: "Table 6", capacity: 6 },
-  { id: "table-7", label: "Table 7", capacity: 2 },
-  { id: "table-10", label: "Table 10", capacity: 8 },
-]
+type TableOption = {
+  id: string
+  label: string        // "Table 5"
+  tableNumber: string  // "5" — matches what the DB returns in res.table
+  capacity: number
+}
 
-const customers = [
-  { id: "customer-santos", label: "Santos family" },
-  { id: "customer-mia", label: "Mia Navarro" },
-  { id: "customer-reyes", label: "Reyes birthday" },
-]
-
-const staff = [
-  { id: "staff-admin", label: "Admin User" },
-  { id: "staff-cashier", label: "Cashier" },
-]
-
-// ---------------------------------------------------------------------------
-// Mock data — matches reservations table columns
-// ---------------------------------------------------------------------------
+type StaffOption = {
+  id: string
+  label: string
+}
 
 const today = new Date()
 const fmt = (d: Date) => d.toISOString().split("T")[0]
@@ -117,99 +113,6 @@ const addDays = (d: Date, n: number) => {
   copy.setDate(copy.getDate() + n)
   return copy
 }
-
-const MOCK_RESERVATIONS: Reservation[] = [
-  {
-    id: "res-001",
-    customerId: "customer-santos",
-    customerName: "Santos family",
-    contactNumber: "09171234567",
-    email: "santos@email.com",
-    tableId: "table-6",
-    table: "Table 6",
-    reservationDate: fmt(addDays(today, 1)),
-    reservationTime: "18:00",
-    numberOfGuests: 5,
-    status: "confirmed",
-    notes: "Anniversary dinner. Needs cake service.",
-    createdByStaffId: "staff-admin",
-  },
-  {
-    id: "res-002",
-    customerId: "customer-reyes",
-    customerName: "Reyes birthday",
-    contactNumber: "09209876543",
-    email: null,
-    tableId: "table-10",
-    table: "Table 10",
-    reservationDate: fmt(addDays(today, 2)),
-    reservationTime: "19:30",
-    numberOfGuests: 8,
-    status: "pending",
-    notes: "Birthday celebration. Balloons requested.",
-    createdByStaffId: "staff-cashier",
-  },
-  {
-    id: "res-003",
-    customerId: null,
-    customerName: "Juan Dela Cruz",
-    contactNumber: "09351112222",
-    email: "juan@email.com",
-    tableId: "table-2",
-    table: "Table 2",
-    reservationDate: fmt(today),
-    reservationTime: "12:00",
-    numberOfGuests: 3,
-    status: "completed",
-    notes: null,
-    createdByStaffId: "staff-admin",
-  },
-  {
-    id: "res-004",
-    customerId: "customer-mia",
-    customerName: "Mia Navarro",
-    contactNumber: "09178887766",
-    email: "mia@email.com",
-    tableId: "table-4",
-    table: "Table 4",
-    reservationDate: fmt(addDays(today, -1)),
-    reservationTime: "20:00",
-    numberOfGuests: 2,
-    status: "no_show",
-    notes: "Called to confirm, no response.",
-    createdByStaffId: "staff-cashier",
-  },
-  {
-    id: "res-005",
-    customerId: null,
-    customerName: "Maria Garcia",
-    contactNumber: "09561234321",
-    email: null,
-    tableId: null,
-    table: null,
-    reservationDate: fmt(addDays(today, 3)),
-    reservationTime: "13:00",
-    numberOfGuests: 4,
-    status: "pending",
-    notes: "Prefers window seat.",
-    createdByStaffId: "staff-admin",
-  },
-  {
-    id: "res-006",
-    customerId: null,
-    customerName: "Pedro Penduko",
-    contactNumber: "09991112233",
-    email: "pedro@email.com",
-    tableId: "table-1",
-    table: "Table 1",
-    reservationDate: fmt(addDays(today, -2)),
-    reservationTime: "11:30",
-    numberOfGuests: 2,
-    status: "cancelled",
-    notes: "Cancelled due to personal reasons.",
-    createdByStaffId: "staff-cashier",
-  },
-]
 
 // ---------------------------------------------------------------------------
 // Status config
@@ -281,7 +184,7 @@ const emptyForm: ReservationForm = {
   numberOfGuests: 2,
   status: "pending",
   notes: null,
-  createdByStaffId: "staff-admin",
+  createdByStaffId: null,
 }
 
 // ---------------------------------------------------------------------------
@@ -289,7 +192,13 @@ const emptyForm: ReservationForm = {
 // ---------------------------------------------------------------------------
 
 export default function ReservationsPage() {
-  const [reservations, setReservations] = useState<Reservation[]>(MOCK_RESERVATIONS)
+  const [reservations, setReservations] = useState<Reservation[]>([])
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
+  const [tables, setTables] = useState<TableOption[]>([])
+  const [staff, setStaff] = useState<StaffOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
   const [activeTab, setActiveTab] = useState("upcoming")
   const [search, setSearch] = useState("")
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
@@ -298,6 +207,58 @@ export default function ReservationsPage() {
   const [form, setForm] = useState<ReservationForm>(emptyForm)
   const [page, setPage] = useState(1)
   const pageSize = 8
+
+  // ---------------------------------------------------------------------------
+  // Load data from server
+  // ---------------------------------------------------------------------------
+
+  const loadReservations = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetchReservations()
+      if (res.success) {
+        setReservations(res.data as Reservation[])
+
+        // Map raw DB rows into dropdown-friendly options
+        setCustomers(
+          (res.customers as any[]).map((c) => ({
+            id: c.id,
+            label: c.name ?? c.id,
+          }))
+        )
+        setTables(
+          (res.tables as any[]).map((t) => ({
+            id: t.id,
+            label: `Table ${t.tableNumber}`,
+            tableNumber: String(t.tableNumber),
+            capacity: t.capacity,
+          }))
+        )
+        setStaff(
+          (res.staff as any[]).map((s) => ({
+            id: s.id,
+            label: s.name ?? s.id,
+          }))
+        )
+      } else {
+        toast.error("Failed to load reservations", {
+          description: (res as any).error,
+        })
+      }
+    } catch (err: any) {
+      toast.error("Failed to load reservations", { description: err.message })
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadReservations()
+  }, [loadReservations])
+
+  // ---------------------------------------------------------------------------
+  // Filtering + pagination
+  // ---------------------------------------------------------------------------
 
   const filteredReservations = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -353,6 +314,10 @@ export default function ReservationsPage() {
     [reservations],
   )
 
+  // ---------------------------------------------------------------------------
+  // Sheet open / close helpers
+  // ---------------------------------------------------------------------------
+
   function openCreateSheet() {
     setEditingId(null)
     setForm(emptyForm)
@@ -378,7 +343,11 @@ export default function ReservationsPage() {
     setSheetOpen(true)
   }
 
-  function saveReservation() {
+  // ---------------------------------------------------------------------------
+  // CRUD actions
+  // ---------------------------------------------------------------------------
+
+  async function saveReservation() {
     if (!form.customerName.trim()) {
       toast.error("Customer name is required")
       return
@@ -392,54 +361,77 @@ export default function ReservationsPage() {
       return
     }
 
-    if (editingId) {
-      setReservations((current) =>
-        current.map((res) =>
-          res.id === editingId ? { ...res, ...form } : res,
-        ),
-      )
-      setSelectedReservation((current) =>
-        current?.id === editingId ? { ...current, ...form } : current,
-      )
-      toast.success("Reservation updated", {
-        description: `${form.customerName}'s booking was saved.`,
-      })
-    } else {
-      const newReservation: Reservation = {
-        id: crypto.randomUUID(),
-        ...form,
+    setSaving(true)
+    try {
+      if (editingId) {
+        const result = await updateReservationAction({
+          id: editingId,
+          ...form,
+        })
+        if (!result.success) {
+          toast.error("Failed to update reservation", { description: result.error })
+          return
+        }
+        toast.success("Reservation updated", {
+          description: `${form.customerName}'s booking was saved.`,
+        })
+      } else {
+        const result = await createReservationAction(form)
+        if (!result.success) {
+          toast.error("Failed to create reservation", { description: result.error })
+          return
+        }
+        toast.success("Reservation created", {
+          description: `${form.customerName} is booked for ${formatDate(form.reservationDate)} at ${formatTime(form.reservationTime)}.`,
+        })
       }
-      setReservations((current) => [newReservation, ...current])
-      toast.success("Reservation created", {
-        description: `${form.customerName} is booked for ${formatDate(form.reservationDate)} at ${formatTime(form.reservationTime)}.`,
-      })
+      setSheetOpen(false)
+      await loadReservations()
+    } catch (err: any) {
+      toast.error("Something went wrong", { description: err.message })
+    } finally {
+      setSaving(false)
     }
-    setSheetOpen(false)
   }
 
-  function updateStatus(reservation: Reservation, status: ReservationStatus) {
-    setReservations((current) =>
-      current.map((res) =>
-        res.id === reservation.id ? { ...res, status } : res,
-      ),
-    )
-    setSelectedReservation((current) =>
-      current?.id === reservation.id ? { ...current, status } : current,
-    )
-    toast.success(
-      `${reservation.customerName} marked ${statusLabels[status].toLowerCase()}`,
-    )
+  async function updateStatus(reservation: Reservation, status: ReservationStatus) {
+    try {
+      const result = await updateReservationAction({ id: reservation.id, status })
+      if (!result.success) {
+        toast.error("Failed to update status", { description: result.error })
+        return
+      }
+      toast.success(`${reservation.customerName} marked ${statusLabels[status].toLowerCase()}`)
+      await loadReservations()
+      // Keep the detail sheet in sync
+      setSelectedReservation((current) =>
+        current?.id === reservation.id ? { ...current, status } : current,
+      )
+    } catch (err: any) {
+      toast.error("Something went wrong", { description: err.message })
+    }
   }
 
-  function deleteReservation(reservation: Reservation) {
-    setReservations((current) =>
-      current.filter((res) => res.id !== reservation.id),
-    )
-    setSelectedReservation(null)
-    toast.success("Reservation deleted", {
-      description: `${reservation.customerName}'s booking was removed.`,
-    })
+  async function deleteReservation(reservation: Reservation) {
+    try {
+      const result = await deleteReservationAction(reservation.id)
+      if (!result.success) {
+        toast.error("Failed to delete reservation", { description: result.error })
+        return
+      }
+      setSelectedReservation(null)
+      toast.success("Reservation deleted", {
+        description: `${reservation.customerName}'s booking was removed.`,
+      })
+      await loadReservations()
+    } catch (err: any) {
+      toast.error("Something went wrong", { description: err.message })
+    }
   }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="w-full min-w-0 overflow-x-hidden pb-16 sm:pb-8">
@@ -541,7 +533,11 @@ export default function ReservationsPage() {
           </CardHeader>
 
           <CardContent className="p-0">
-            {filteredReservations.length ? (
+            {loading ? (
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredReservations.length ? (
               <div className="divide-y">
                 {paginatedReservations.map((res) => (
                   <div
@@ -595,7 +591,7 @@ export default function ReservationsPage() {
             )}
           </CardContent>
 
-          {filteredReservations.length > pageSize && (
+          {!loading && filteredReservations.length > pageSize && (
             <div className="flex items-center justify-between border-t px-4 py-3 sm:px-6">
               <p className="text-xs text-muted-foreground">
                 Showing {(page - 1) * pageSize + 1}–
@@ -800,13 +796,16 @@ export default function ReservationsPage() {
                       setForm((current) => ({
                         ...current,
                         tableId: value === "none" ? null : value,
-                        table:
-                          value === "none" ? null : (tableItem?.label ?? null),
+                        table: value === "none" ? null : (tableItem?.tableNumber ?? null),
                       }))
                     }}
                   >
                     <SelectTrigger className="h-11 w-full sm:h-10">
-                      <SelectValue placeholder="Assign later" />
+                      <SelectValue placeholder="Assign later">
+                        {form.tableId
+                          ? (tables.find((t) => t.id === form.tableId)?.label ?? `Table ${form.table}`)
+                          : "Assign later"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Assign later</SelectItem>
@@ -856,7 +855,7 @@ export default function ReservationsPage() {
                     }
                   >
                     <SelectTrigger className="h-11 w-full sm:h-10">
-                      <SelectValue />
+                      <SelectValue placeholder="Unassigned" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Unassigned</SelectItem>
@@ -893,14 +892,19 @@ export default function ReservationsPage() {
             <Button
               variant="outline"
               onClick={() => setSheetOpen(false)}
+              disabled={saving}
               className="flex-1 border-amber-500 text-amber-700 hover:bg-amber-50"
             >
               Cancel
             </Button>
             <Button
               onClick={saveReservation}
+              disabled={saving}
               className="flex-1 bg-amber-500 font-semibold text-neutral-950 hover:bg-amber-400"
             >
+              {saving ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : null}
               {editingId ? "Save changes" : "Create booking"}
             </Button>
           </SheetFooter>
@@ -1029,7 +1033,7 @@ export default function ReservationsPage() {
                   </AlertDialog>
                 </div>
 
-                {/* Status actions — mirrors the order status flow */}
+                {/* Status actions */}
                 {selectedReservation.status === "pending" && (
                   <Button
                     onClick={() =>

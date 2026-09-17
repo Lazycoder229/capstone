@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   AlertCircle,
   Award,
@@ -37,6 +37,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { fetchSystemSettings, updateSystemSettingsAction } from "@/app/actions/settings"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -65,7 +67,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 // ---------------------------------------------------------------------------
-// Types & Defaults (Matching Module 17: system_settings schema)
+// Types (Matching Module 17: system_settings schema)
 // ---------------------------------------------------------------------------
 
 export interface SystemSettingsValues {
@@ -115,46 +117,42 @@ export interface SystemSettingsValues {
   autoArchiveSettledOrdersHours: number
 }
 
-const DEFAULT_SETTINGS: SystemSettingsValues = {
-  restaurantName: "PRIME Roast & Grill",
-  branchName: "Main Branch - Manila",
-  contactNumber: "+63 917 123 4567",
-  email: "contact@primerestaurant.ph",
-  address: "123 Taft Avenue, Ermita, Manila, 1000 Metro Manila, Philippines",
-  tinNumber: "009-876-543-000",
-  birMin: "MIN-2026-88741",
-  currencySymbol: "₱",
-  currencyCode: "PHP",
-  timezone: "Asia/Manila",
-
-  vatEnabled: true,
-  vatRate: 12.0,
-  vatInclusive: true,
-  serviceChargeEnabled: true,
-  serviceChargeRate: 5.0,
-  seniorPwdDiscountEnabled: true,
-
+const EMPTY_SETTINGS: SystemSettingsValues = {
+  restaurantName: "",
+  branchName: "",
+  contactNumber: "",
+  email: "",
+  address: "",
+  tinNumber: "",
+  birMin: "",
+  currencySymbol: "",
+  currencyCode: "",
+  timezone: "",
+  vatEnabled: false,
+  vatRate: 0,
+  vatInclusive: false,
+  serviceChargeEnabled: false,
+  serviceChargeRate: 0,
+  seniorPwdDiscountEnabled: false,
   orderNumberPrefix: "ORD-",
   defaultOrderType: "dine_in",
   autoAcceptQrOrders: false,
-  requireTableSelection: true,
-  managerApprovalForVoids: true,
-  lowStockThresholdAlert: 10,
-
-  receiptHeader: "Welcome to PRIME Roast & Grill!\nHome of Authentic Charcoal-Roasted Chicken",
-  receiptFooter: "Thank you for dining with us!\nPlease come back soon.\nFor inquiries, call +63 917 123 4567",
-  printReceiptAuto: true,
-  printKotAuto: true,
-  showWifiOnReceipt: true,
-  wifiSsid: "PRIME-Guest-5G",
-  wifiPassword: "deliciousroast",
-
+  requireTableSelection: false,
+  managerApprovalForVoids: false,
+  lowStockThresholdAlert: 0,
+  receiptHeader: "",
+  receiptFooter: "",
+  printReceiptAuto: false,
+  printKotAuto: false,
+  showWifiOnReceipt: false,
+  wifiSsid: "",
+  wifiPassword: "",
   openingTime: "08:00",
   closingTime: "22:00",
-  cashDrawerOpeningBalanceRequired: true,
-  loyaltyPointsPerPeso: 1.0,
-  loyaltyPesoValuePerPoint: 0.5,
-  autoArchiveSettledOrdersHours: 24,
+  cashDrawerOpeningBalanceRequired: false,
+  loyaltyPointsPerPeso: 0,
+  loyaltyPesoValuePerPoint: 0,
+  autoArchiveSettledOrdersHours: 0,
 }
 
 // ---------------------------------------------------------------------------
@@ -162,8 +160,8 @@ const DEFAULT_SETTINGS: SystemSettingsValues = {
 // ---------------------------------------------------------------------------
 
 export default function SystemSettingsPage() {
-  const [settings, setSettings] = useState<SystemSettingsValues>(DEFAULT_SETTINGS)
-  const [initialSettings, setInitialSettings] = useState<SystemSettingsValues>(DEFAULT_SETTINGS)
+  const [settings, setSettings] = useState<SystemSettingsValues>(EMPTY_SETTINGS)
+  const [initialSettings, setInitialSettings] = useState<SystemSettingsValues>(EMPTY_SETTINGS)
   const [activeTab, setActiveTab] = useState("store")
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -171,6 +169,43 @@ export default function SystemSettingsPage() {
   // Interactive Live Calculator state
   const [sampleBillAmount, setSampleBillAmount] = useState<number>(1000)
   const [applySampleSenior, setApplySampleSenior] = useState(false)
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const result = await fetchSystemSettings()
+      if (!result.success) {
+        toast.error(result.error)
+        return
+      }
+
+      if (!result.data) {
+        setSettings(EMPTY_SETTINGS)
+        setInitialSettings(EMPTY_SETTINGS)
+        return
+      }
+      const loadedSettings: SystemSettingsValues = {
+        ...EMPTY_SETTINGS,
+        ...result.data,
+        orderNumberPrefix: result.data.orderNumberPrefix?.trim() || EMPTY_SETTINGS.orderNumberPrefix,
+        openingTime: /^\d{2}:\d{2}$/.test(result.data.openingTime || "")
+          ? result.data.openingTime
+          : EMPTY_SETTINGS.openingTime,
+        closingTime: /^\d{2}:\d{2}$/.test(result.data.closingTime || "")
+          ? result.data.closingTime
+          : EMPTY_SETTINGS.closingTime,
+        tinNumber: result.data.tinNumber ?? "",
+        birMin: result.data.birMin ?? "",
+        receiptHeader: result.data.receiptHeader ?? "",
+        receiptFooter: result.data.receiptFooter ?? "",
+        wifiSsid: result.data.wifiSsid ?? "",
+        wifiPassword: result.data.wifiPassword ?? "",
+      }
+      setSettings(loadedSettings)
+      setInitialSettings(loadedSettings)
+    }
+
+    void loadSettings()
+  }, [])
 
   // Track unsaved changes
   const isDirty = useMemo(() => {
@@ -183,23 +218,62 @@ export default function SystemSettingsPage() {
   }
 
   // Save handler
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true)
-    setTimeout(() => {
-      setInitialSettings(settings)
-      setIsSaving(false)
-      toast.success("System settings updated successfully", {
-        description: "Your POS configuration changes have been applied across all terminals.",
-      })
-    }, 450)
+    const result = await updateSystemSettingsAction({
+      restaurantName: settings.restaurantName,
+      branchName: settings.branchName,
+      contactNumber: settings.contactNumber,
+      email: settings.email,
+      address: settings.address,
+      tinNumber: settings.tinNumber || undefined,
+      birMin: settings.birMin || undefined,
+      currencySymbol: settings.currencySymbol,
+      currencyCode: settings.currencyCode,
+      timezone: settings.timezone,
+      vatEnabled: settings.vatEnabled,
+      vatRate: settings.vatRate,
+      vatInclusive: settings.vatInclusive,
+      serviceChargeEnabled: settings.serviceChargeEnabled,
+      serviceChargeRate: settings.serviceChargeRate,
+      seniorPwdDiscountEnabled: settings.seniorPwdDiscountEnabled,
+      orderNumberPrefix: settings.orderNumberPrefix.trim() || EMPTY_SETTINGS.orderNumberPrefix,
+      autoAcceptQrOrders: settings.autoAcceptQrOrders,
+      requireTableSelection: settings.requireTableSelection,
+      managerApprovalForVoids: settings.managerApprovalForVoids,
+      lowStockThresholdAlert: settings.lowStockThresholdAlert,
+      receiptHeader: settings.receiptHeader || undefined,
+      receiptFooter: settings.receiptFooter || undefined,
+      printReceiptAuto: settings.printReceiptAuto,
+      printKotAuto: settings.printKotAuto,
+      showWifiOnReceipt: settings.showWifiOnReceipt,
+      wifiSsid: settings.wifiSsid || undefined,
+      wifiPassword: settings.wifiPassword || undefined,
+      openingTime: /^\d{2}:\d{2}$/.test(settings.openingTime)
+        ? settings.openingTime
+        : EMPTY_SETTINGS.openingTime,
+      closingTime: /^\d{2}:\d{2}$/.test(settings.closingTime)
+        ? settings.closingTime
+        : EMPTY_SETTINGS.closingTime,
+      cashDrawerOpeningBalanceRequired: settings.cashDrawerOpeningBalanceRequired,
+    })
+    setIsSaving(false)
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    setInitialSettings(settings)
+    toast.success(result.data.message, {
+      description: "Your POS configuration changes have been applied across all terminals.",
+    })
   }
 
   // Reset handler
   const handleConfirmReset = () => {
-    setSettings(DEFAULT_SETTINGS)
-    setInitialSettings(DEFAULT_SETTINGS)
+    setSettings(EMPTY_SETTINGS)
+    setInitialSettings(EMPTY_SETTINGS)
     setIsResetDialogOpen(false)
-    toast.info("Settings reset to defaults")
+    toast.info("Settings cleared. Save to persist the empty configuration.")
   }
 
   // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   AlertCircle,
   AlertTriangle,
@@ -51,6 +51,13 @@ import {
   Zap,
 } from "lucide-react"
 import { toast } from "sonner"
+
+import {
+  createEmployeeAction,
+  createEmployeeWithAccountAction,
+  fetchEmployeesData,
+  rfidTapAttendanceAction,
+} from "@/app/actions/employees"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -179,291 +186,21 @@ export interface PayrollRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Seed Data
+// Page Component
 // ---------------------------------------------------------------------------
-
-const INITIAL_EMPLOYEES: EmployeeProfile[] = [
-  {
-    id: "emp-1",
-    userId: "usr-2",
-    employeeNumber: "PRIME-001",
-    name: "Carlos Mendoza",
-    email: "carlos.m@primerestaurant.ph",
-    contactNumber: "+63 918 222 3333",
-    position: "Store Manager",
-    department: "Management",
-    rfidCardUid: "E2000019060B0101",
-    dateHired: "2024-01-15",
-    employmentStatus: "active",
-    basicSalary: 28000,
-    salaryType: "monthly",
-    dailyRate: 1076.92,
-    hourlyRate: 134.62,
-  },
-  {
-    id: "emp-2",
-    userId: "usr-3",
-    employeeNumber: "PRIME-002",
-    name: "Juan Reyes",
-    email: "juan.r@primerestaurant.ph",
-    contactNumber: "+63 919 333 4444",
-    position: "Head Cashier",
-    department: "Cashier",
-    rfidCardUid: "E2000019060B0102",
-    dateHired: "2024-06-01",
-    employmentStatus: "active",
-    basicSalary: 610,
-    salaryType: "daily",
-    dailyRate: 610,
-    hourlyRate: 76.25,
-  },
-  {
-    id: "emp-3",
-    userId: "usr-4",
-    employeeNumber: "PRIME-003",
-    name: "Maria Cruz",
-    email: "maria.c@primerestaurant.ph",
-    contactNumber: "+63 920 444 5555",
-    position: "Cashier / Server",
-    department: "Cashier",
-    rfidCardUid: "E2000019060B0103",
-    dateHired: "2025-02-10",
-    employmentStatus: "active",
-    basicSalary: 610,
-    salaryType: "daily",
-    dailyRate: 610,
-    hourlyRate: 76.25,
-  },
-  {
-    id: "emp-4",
-    userId: "usr-5",
-    employeeNumber: "PRIME-004",
-    name: "Lia Santos",
-    email: "lia.s@primerestaurant.ph",
-    contactNumber: "+63 921 555 6666",
-    position: "Kitchen Lead & Roaster",
-    department: "Kitchen",
-    rfidCardUid: "E2000019060B0104",
-    dateHired: "2024-03-20",
-    employmentStatus: "active",
-    basicSalary: 22000,
-    salaryType: "monthly",
-    dailyRate: 846.15,
-    hourlyRate: 105.77,
-  },
-  {
-    id: "emp-5",
-    userId: "usr-6",
-    employeeNumber: "PRIME-005",
-    name: "Angelo Santos",
-    email: "angelo.s@primerestaurant.ph",
-    contactNumber: "+63 922 666 7777",
-    position: "Dining Server",
-    department: "Service",
-    rfidCardUid: "E2000019060B0105",
-    dateHired: "2025-05-12",
-    employmentStatus: "active",
-    basicSalary: 610,
-    salaryType: "daily",
-    dailyRate: 610,
-    hourlyRate: 76.25,
-  },
-  {
-    id: "emp-6",
-    userId: "usr-7",
-    employeeNumber: "PRIME-006",
-    name: "Danilo Ramos",
-    email: "danilo.r@primerestaurant.ph",
-    contactNumber: "+63 923 777 8888",
-    position: "Grill Cook",
-    department: "Kitchen",
-    rfidCardUid: "E2000019060B0106",
-    dateHired: "2025-07-01",
-    employmentStatus: "active",
-    basicSalary: 650,
-    salaryType: "daily",
-    dailyRate: 650,
-    hourlyRate: 81.25,
-  },
-]
-
-const INITIAL_ATTENDANCE: AttendanceRecord[] = [
-  {
-    id: "att-1",
-    employeeId: "emp-1",
-    employeeName: "Carlos Mendoza",
-    employeeNumber: "PRIME-001",
-    department: "Management",
-    logDate: "2026-09-17",
-    clockIn: "07:54 AM",
-    clockOut: null,
-    totalHours: null,
-    lateMinutes: 0,
-    overtimeHours: 0,
-    status: "on_time",
-    method: "rfid",
-    rfidCardUidUsed: "E2000019060B0101",
-    notes: "RFID tap station 1",
-  },
-  {
-    id: "att-2",
-    employeeId: "emp-2",
-    employeeName: "Juan Reyes",
-    employeeNumber: "PRIME-002",
-    department: "Cashier",
-    logDate: "2026-09-17",
-    clockIn: "08:14 AM",
-    clockOut: null,
-    totalHours: null,
-    lateMinutes: 14,
-    overtimeHours: 0,
-    status: "late",
-    method: "rfid",
-    rfidCardUidUsed: "E2000019060B0102",
-    notes: "Late 14 mins — traffic along Taft",
-  },
-  {
-    id: "att-3",
-    employeeId: "emp-4",
-    employeeName: "Lia Santos",
-    employeeNumber: "PRIME-004",
-    department: "Kitchen",
-    logDate: "2026-09-17",
-    clockIn: "07:45 AM",
-    clockOut: null,
-    totalHours: null,
-    lateMinutes: 0,
-    overtimeHours: 0,
-    status: "on_time",
-    method: "rfid",
-    rfidCardUidUsed: "E2000019060B0104",
-    notes: "RFID tap station 1 (Morning roast prep)",
-  },
-  {
-    id: "att-4",
-    employeeId: "emp-3",
-    employeeName: "Maria Cruz",
-    employeeNumber: "PRIME-003",
-    department: "Cashier",
-    logDate: "2026-09-16",
-    clockIn: "08:00 AM",
-    clockOut: "05:15 PM",
-    totalHours: 9.25,
-    lateMinutes: 0,
-    overtimeHours: 1.25,
-    status: "overtime",
-    method: "rfid",
-    rfidCardUidUsed: "E2000019060B0103",
-    notes: "Overtime dinner peak rush",
-  },
-  {
-    id: "att-5",
-    employeeId: "emp-5",
-    employeeName: "Angelo Santos",
-    employeeNumber: "PRIME-005",
-    department: "Service",
-    logDate: "2026-09-16",
-    clockIn: "09:00 AM",
-    clockOut: "05:00 PM",
-    totalHours: 8.0,
-    lateMinutes: 0,
-    overtimeHours: 0,
-    status: "on_time",
-    method: "rfid",
-    rfidCardUidUsed: "E2000019060B0105",
-    notes: "Standard floor shift",
-  },
-]
-
-const INITIAL_SCHEDULES: ShiftSchedule[] = [
-  { id: "sch-1", userId: "usr-2", employeeName: "Carlos Mendoza", position: "Store Manager", department: "Management", shiftDate: "2026-09-17", startTime: "08:00", endTime: "17:00", station: "Manager Office & Floor" },
-  { id: "sch-2", userId: "usr-3", employeeName: "Juan Reyes", position: "Head Cashier", department: "Cashier", shiftDate: "2026-09-17", startTime: "08:00", endTime: "17:00", station: "Counter POS Station 1" },
-  { id: "sch-3", userId: "usr-5", employeeName: "Lia Santos", position: "Kitchen Lead", department: "Kitchen", shiftDate: "2026-09-17", startTime: "07:30", endTime: "16:30", station: "Charcoal Roaster Station" },
-  { id: "sch-4", userId: "usr-4", employeeName: "Maria Cruz", position: "Cashier", department: "Cashier", shiftDate: "2026-09-17", startTime: "12:00", endTime: "21:00", station: "Counter POS Station 2 (Closing)" },
-  { id: "sch-5", userId: "usr-6", employeeName: "Angelo Santos", position: "Dining Server", department: "Service", shiftDate: "2026-09-17", startTime: "11:00", endTime: "20:00", station: "Main Dining & Patio" },
-  { id: "sch-6", userId: "usr-7", employeeName: "Danilo Ramos", position: "Grill Cook", department: "Kitchen", shiftDate: "2026-09-17", startTime: "10:00", endTime: "19:00", station: "BBQ & Sisig Grill Line" },
-]
-
-const INITIAL_PAYROLL: PayrollRecord[] = [
-  {
-    id: "pr-1",
-    employeeId: "emp-1",
-    employeeName: "Carlos Mendoza",
-    employeeNumber: "PRIME-001",
-    position: "Store Manager",
-    department: "Management",
-    periodStart: "2026-09-01",
-    periodEnd: "2026-09-15",
-    daysWorked: 13,
-    basicPay: 14000,
-    overtimePay: 1200,
-    grossPay: 15200,
-    deductions: { sss: 630, philHealth: 350, pagIbig: 100, tardiness: 0, cashAdvance: 0, total: 1080 },
-    netPay: 14120,
-    status: "paid",
-  },
-  {
-    id: "pr-2",
-    employeeId: "emp-2",
-    employeeName: "Juan Reyes",
-    employeeNumber: "PRIME-002",
-    position: "Head Cashier",
-    department: "Cashier",
-    periodStart: "2026-09-01",
-    periodEnd: "2026-09-15",
-    daysWorked: 12,
-    basicPay: 7320,
-    overtimePay: 450,
-    grossPay: 7770,
-    deductions: { sss: 420, philHealth: 220, pagIbig: 100, tardiness: 120, cashAdvance: 500, total: 1360 },
-    netPay: 6410,
-    status: "paid",
-  },
-  {
-    id: "pr-3",
-    employeeId: "emp-4",
-    employeeName: "Lia Santos",
-    employeeNumber: "PRIME-004",
-    position: "Kitchen Lead",
-    department: "Kitchen",
-    periodStart: "2026-09-01",
-    periodEnd: "2026-09-15",
-    daysWorked: 13,
-    basicPay: 11000,
-    overtimePay: 1850,
-    grossPay: 12850,
-    deductions: { sss: 580, philHealth: 310, pagIbig: 100, tardiness: 0, cashAdvance: 0, total: 990 },
-    netPay: 11860,
-    status: "paid",
-  },
-  {
-    id: "pr-4",
-    employeeId: "emp-5",
-    employeeName: "Angelo Santos",
-    employeeNumber: "PRIME-005",
-    position: "Dining Server",
-    department: "Service",
-    periodStart: "2026-09-01",
-    periodEnd: "2026-09-15",
-    daysWorked: 11,
-    basicPay: 6710,
-    overtimePay: 0,
-    grossPay: 6710,
-    deductions: { sss: 380, philHealth: 200, pagIbig: 100, tardiness: 75, cashAdvance: 0, total: 755 },
-    netPay: 5955,
-    status: "paid",
-  },
-]
 
 export default function EmployeesPage() {
   const [activeTab, setActiveTab] = useState("directory")
 
   // Employees state
-  const [employees, setEmployees] = useState<EmployeeProfile[]>(INITIAL_EMPLOYEES)
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([])
   const [employeeSearch, setEmployeeSearch] = useState("")
   const [departmentFilter, setDepartmentFilter] = useState("all")
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null)
+  const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeProfile | null>(null)
   const [editingEmployee, setEditingEmployee] = useState<EmployeeProfile | null>(null)
   const [isEmployeeSheetOpen, setIsEmployeeSheetOpen] = useState(false)
+  const [isDeleteEmployeeDialogOpen, setIsDeleteEmployeeDialogOpen] = useState(false)
   const [deletingEmployeeId, setDeletingEmployeeId] = useState<string | null>(null)
 
   // Employee Form state
@@ -475,6 +212,7 @@ export default function EmployeesPage() {
     department: "Service",
     employeeNumber: "",
     rfidCardUid: "",
+    password: "",
     dateHired: new Date().toISOString().split("T")[0],
     employmentStatus: "active" as EmploymentStatus,
     basicSalary: 610,
@@ -482,10 +220,10 @@ export default function EmployeesPage() {
   })
 
   // Attendance state
-  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE)
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>([])
   const [attendanceFilterDate, setAttendanceFilterDate] = useState("all")
   const [simulatedCardUid, setSimulatedCardUid] = useState("")
-  const [selectedTapEmployeeId, setSelectedTapEmployeeId] = useState<string>("emp-2")
+  const [selectedTapEmployeeId, setSelectedTapEmployeeId] = useState<string>("")
   const [lastTapResult, setLastTapResult] = useState<{
     employeeName: string
     type: "in" | "out"
@@ -495,10 +233,10 @@ export default function EmployeesPage() {
   } | null>(null)
 
   // Schedules state
-  const [schedules, setSchedules] = useState<ShiftSchedule[]>(INITIAL_SCHEDULES)
+  const [schedules, setSchedules] = useState<ShiftSchedule[]>([])
   const [isAddShiftOpen, setIsAddShiftOpen] = useState(false)
   const [newShift, setNewShift] = useState({
-    employeeId: "emp-2",
+    employeeId: "",
     shiftDate: new Date().toISOString().split("T")[0],
     startTime: "08:00",
     endTime: "17:00",
@@ -506,9 +244,66 @@ export default function EmployeesPage() {
   })
 
   // Payroll state
-  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>(INITIAL_PAYROLL)
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollRecord | null>(null)
   const [payrollPeriod, setPayrollPeriod] = useState("Sep 1–15, 2026")
+
+  useEffect(() => {
+    const loadEmployees = async () => {
+      const result = await fetchEmployeesData()
+      if (!result.success) {
+        toast.error(result.error)
+        return
+      }
+
+      const formattedEmployees = result.data.employees.map((employee) => {
+          const dailyRate = employee.salaryType === "daily" ? employee.basicSalary : employee.basicSalary / 26
+          return {
+            id: employee.id,
+            userId: employee.userId,
+            employeeNumber: employee.employeeNumber,
+            name: employee.name,
+            email: "",
+            contactNumber: "",
+            position: employee.position,
+            department: employee.department || "Unassigned",
+            rfidCardUid: employee.rfidCardUid || null,
+            dateHired: employee.dateHired,
+            employmentStatus: employee.employmentStatus,
+            basicSalary: employee.basicSalary,
+            salaryType: employee.salaryType,
+            dailyRate,
+            hourlyRate: dailyRate / 8,
+          }
+        })
+      const employeeMap = new Map(formattedEmployees.map((employee) => [employee.id, employee]))
+      setEmployees(formattedEmployees)
+      if (formattedEmployees.length > 0) {
+        setSelectedTapEmployeeId(formattedEmployees[0].id)
+      }
+      setAttendanceLogs(
+        result.data.attendanceLogs.map((log) => ({
+          id: log.id,
+          employeeId: log.employeeId,
+          employeeName: log.employeeName,
+          employeeNumber: employeeMap.get(log.employeeId)?.employeeNumber || "",
+          department: employeeMap.get(log.employeeId)?.department || "",
+          logDate: log.clockIn ? new Date(log.clockIn).toISOString().split("T")[0] : "",
+          clockIn: log.clockIn,
+          clockOut: log.clockOut,
+          totalHours: log.totalHours,
+          lateMinutes: log.lateMinutes,
+          overtimeHours: log.overtimeHours,
+          status: log.status,
+          method: log.method,
+          rfidCardUidUsed: log.rfidCardUid,
+          notes: null,
+        }))
+      )
+    }
+
+    void loadEmployees()
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Handlers — Employee Management
@@ -516,19 +311,18 @@ export default function EmployeesPage() {
 
   const handleOpenAddEmployee = () => {
     setEditingEmployee(null)
-    const nextNum = `PRIME-00${employees.length + 1}`
-    const mockRfid = `E2000019060B010${employees.length + 1}`
     setEmpForm({
       name: "",
       email: "",
-      contactNumber: "+63 9",
-      position: "Cashier",
-      department: "Cashier",
-      employeeNumber: nextNum,
-      rfidCardUid: mockRfid,
+      contactNumber: "",
+      position: "",
+      department: "Service",
+      employeeNumber: "",
+      rfidCardUid: "",
+      password: "",
       dateHired: new Date().toISOString().split("T")[0],
       employmentStatus: "active",
-      basicSalary: 610,
+      basicSalary: 0,
       salaryType: "daily",
     })
     setIsEmployeeSheetOpen(true)
@@ -544,6 +338,7 @@ export default function EmployeesPage() {
       department: emp.department,
       employeeNumber: emp.employeeNumber,
       rfidCardUid: emp.rfidCardUid || "",
+      password: "",
       dateHired: emp.dateHired,
       employmentStatus: emp.employmentStatus,
       basicSalary: emp.basicSalary,
@@ -552,7 +347,29 @@ export default function EmployeesPage() {
     setIsEmployeeSheetOpen(true)
   }
 
-  const handleSaveEmployee = (e: React.FormEvent) => {
+  const handleOpenViewEmployee = (emp: EmployeeProfile) => {
+    setSelectedEmployee(emp)
+  }
+
+  const handleDeleteEmployee = (emp: EmployeeProfile) => {
+    setEmployeeToDelete(emp)
+    setIsDeleteEmployeeDialogOpen(true)
+  }
+
+  const handleConfirmDeleteEmployee = () => {
+    if (!employeeToDelete) return
+
+    setEmployees((prev) => prev.filter((emp) => emp.id !== employeeToDelete.id))
+    setSelectedEmployee(null)
+    setEmployeeToDelete(null)
+    setIsDeleteEmployeeDialogOpen(false)
+    setDeletingEmployeeId(null)
+    toast.success("Employee removed from the local roster", {
+      description: `${employeeToDelete.name} was deleted from the current list.`,
+    })
+  }
+
+  const handleSaveEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!empForm.name.trim()) {
       toast.error("Employee full name is required")
@@ -563,48 +380,45 @@ export default function EmployeesPage() {
     const hourlyRate = dailyRate / 8
 
     if (editingEmployee) {
-      setEmployees((prev) =>
-        prev.map((item) =>
-          item.id === editingEmployee.id
-            ? {
-                ...item,
-                name: empForm.name.trim(),
-                email: empForm.email.trim(),
-                contactNumber: empForm.contactNumber.trim(),
-                position: empForm.position.trim(),
-                department: empForm.department,
-                rfidCardUid: empForm.rfidCardUid.trim() || null,
-                dateHired: empForm.dateHired,
-                employmentStatus: empForm.employmentStatus,
-                basicSalary: Number(empForm.basicSalary),
-                salaryType: empForm.salaryType,
-                dailyRate: Math.round(dailyRate * 100) / 100,
-                hourlyRate: Math.round(hourlyRate * 100) / 100,
-              }
-            : item
-        )
-      )
-      toast.success("Employee record updated successfully")
+      toast.info("Employee changes are local only; employee updates are not supported by the current backend contract.")
     } else {
-      const newEmp: EmployeeProfile = {
-        id: `emp-${Date.now()}`,
-        userId: `usr-${Date.now()}`,
+      if (!empForm.email.trim() || !empForm.password) {
+        toast.error("Staff email and password are required to create the login account")
+        return
+      }
+
+      const result = await createEmployeeWithAccountAction({
+        name: empForm.name,
+        email: empForm.email,
+        password: empForm.password,
         employeeNumber: empForm.employeeNumber,
-        name: empForm.name.trim(),
-        email: empForm.email.trim(),
-        contactNumber: empForm.contactNumber.trim(),
-        position: empForm.position.trim(),
+        position: empForm.position,
         department: empForm.department,
-        rfidCardUid: empForm.rfidCardUid.trim() || null,
+        rfidCardUid: empForm.rfidCardUid || undefined,
         dateHired: empForm.dateHired,
         employmentStatus: empForm.employmentStatus,
-        basicSalary: Number(empForm.basicSalary),
+        basicSalary: empForm.basicSalary,
         salaryType: empForm.salaryType,
-        dailyRate: Math.round(dailyRate * 100) / 100,
-        hourlyRate: Math.round(hourlyRate * 100) / 100,
+      })
+      if (!result.success) {
+        toast.error("Employee creation failed", { description: result.error })
+        return
       }
-      setEmployees((prev) => [...prev, newEmp])
-      toast.success("New employee added to roster")
+
+      toast.success("Employee and staff account created")
+      const refreshed = await fetchEmployeesData()
+      if (refreshed.success) {
+        setEmployees(refreshed.data.employees.map((employee) => ({
+          ...employee,
+          name: employee.name,
+          email: "",
+          contactNumber: "",
+          department: employee.department || "Unassigned",
+          rfidCardUid: employee.rfidCardUid || null,
+          dailyRate: employee.salaryType === "daily" ? employee.basicSalary : employee.basicSalary / 26,
+          hourlyRate: (employee.salaryType === "daily" ? employee.basicSalary : employee.basicSalary / 26) / 8,
+        })))
+      }
     }
 
     setIsEmployeeSheetOpen(false)
@@ -621,7 +435,7 @@ export default function EmployeesPage() {
   // Handlers — RFID Attendance Simulator
   // ---------------------------------------------------------------------------
 
-  const handleSimulateRfidTap = (empIdToTap?: string) => {
+  const handleSimulateRfidTap = async (empIdToTap?: string) => {
     const empId = empIdToTap || selectedTapEmployeeId
     const targetEmp = employees.find((e) => e.id === empId)
     if (!targetEmp) {
@@ -634,97 +448,35 @@ export default function EmployeesPage() {
       return
     }
 
-    const todayStr = new Date().toISOString().split("T")[0]
-    const nowTimeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-
-    // Check if employee has an open clock-in today
-    const existingLog = attendanceLogs.find(
-      (log) => log.employeeId === targetEmp.id && log.logDate === todayStr && !log.clockOut
-    )
-
-    if (existingLog) {
-      // Clocking OUT
-      const totalHoursWorked = 8.5
-      const overtime = totalHoursWorked > 8 ? totalHoursWorked - 8 : 0
-
-      setAttendanceLogs((prev) =>
-        prev.map((log) =>
-          log.id === existingLog.id
-            ? {
-                ...log,
-                clockOut: nowTimeStr,
-                totalHours: totalHoursWorked,
-                overtimeHours: overtime,
-                status: overtime > 0 ? "overtime" : log.status,
-                notes: `RFID tap clock-out at station 1 (${totalHoursWorked} hrs logged)`,
-              }
-            : log
-        )
-      )
-
-      setLastTapResult({
-        employeeName: targetEmp.name,
-        type: "out",
-        time: nowTimeStr,
-        status: "Shift Completed",
-        cardUid: targetEmp.rfidCardUid,
-      })
-
-      toast.success(`RFID Tap: ${targetEmp.name} Clocked OUT`, {
-        description: `Clock out time: ${nowTimeStr} · Total: ${totalHoursWorked} hrs`,
-      })
-    } else {
-      // Clocking IN
-      // Check schedule for today
-      const schedule = schedules.find((s) => s.userId === targetEmp.userId && s.shiftDate === todayStr)
-      let lateMins = 0
-      let status: AttendanceStatus = "on_time"
-
-      const currentHour = new Date().getHours()
-      const currentMin = new Date().getMinutes()
-      if (currentHour > 8 || (currentHour === 8 && currentMin > 10)) {
-        lateMins = (currentHour - 8) * 60 + currentMin
-        status = "late"
-      }
-
-      const newLog: AttendanceRecord = {
-        id: `att-${Date.now()}`,
-        employeeId: targetEmp.id,
-        employeeName: targetEmp.name,
-        employeeNumber: targetEmp.employeeNumber,
-        department: targetEmp.department,
-        logDate: todayStr,
-        clockIn: nowTimeStr,
-        clockOut: null,
-        totalHours: null,
-        lateMinutes: lateMins,
-        overtimeHours: 0,
-        status,
-        method: "rfid",
-        rfidCardUidUsed: targetEmp.rfidCardUid,
-        notes: lateMins > 0 ? `Late by ${lateMins} mins via RFID station` : "On-time RFID tap",
-      }
-
-      setAttendanceLogs((prev) => [newLog, ...prev])
-
-      setLastTapResult({
-        employeeName: targetEmp.name,
-        type: "in",
-        time: nowTimeStr,
-        status: lateMins > 0 ? `Late (${lateMins} mins)` : "On Time",
-        cardUid: targetEmp.rfidCardUid,
-      })
-
-      if (lateMins > 0) {
-        toast.warning(`RFID Tap: ${targetEmp.name} Clocked IN (Late)`, {
-          description: `Clock in: ${nowTimeStr} · ${lateMins} minutes tardy`,
-        })
-      } else {
-        toast.success(`RFID Tap: ${targetEmp.name} Clocked IN`, {
-          description: `Clock in: ${nowTimeStr} · Status: On-Time`,
-        })
-      }
+    const result = await rfidTapAttendanceAction({ rfidCardUid: targetEmp.rfidCardUid })
+    if (!result.success) {
+      toast.error(result.error)
+      return
     }
+
+    const refreshed = await fetchEmployeesData()
+    if (!refreshed.success) {
+      toast.error(refreshed.error)
+      return
+    }
+    setAttendanceLogs(refreshed.data.attendanceLogs.map((log) => ({
+      ...log,
+      employeeName: log.employeeName,
+      employeeNumber: targetEmp.employeeNumber,
+      department: targetEmp.department,
+      logDate: new Date(log.clockIn).toISOString().split("T")[0],
+      rfidCardUidUsed: log.rfidCardUid,
+      notes: null,
+    })))
+    const tapTime = new Date(result.data.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    setLastTapResult({
+      employeeName: targetEmp.name,
+      type: result.data.action === "clock_in" ? "in" : "out",
+      time: tapTime,
+      status: result.data.action === "clock_in" ? (result.data.lateMinutes ? `Late (${result.data.lateMinutes} mins)` : "On Time") : "Shift Completed",
+      cardUid: targetEmp.rfidCardUid,
+    })
+    toast.success(`RFID Tap: ${targetEmp.name} Clocked ${result.data.action === "clock_in" ? "IN" : "OUT"}`)
   }
 
   // ---------------------------------------------------------------------------
@@ -748,9 +500,8 @@ export default function EmployeesPage() {
       station: newShift.station,
     }
 
-    setSchedules((prev) => [...prev, shiftItem])
-    setIsAddShiftOpen(false)
-    toast.success(`Shift scheduled for ${targetEmp.name}`)
+    void shiftItem
+    toast.info("Shift scheduling is unavailable because no schedule persistence action exists.")
   }
 
   // ---------------------------------------------------------------------------
@@ -758,12 +509,7 @@ export default function EmployeesPage() {
   // ---------------------------------------------------------------------------
 
   const handleComputePayroll = () => {
-    toast.info("Computing payroll from attendance records...", { duration: 1500 })
-    setTimeout(() => {
-      toast.success("Payroll computation completed", {
-        description: `Successfully generated payslips for ${employees.length} active employees.`,
-      })
-    }, 1200)
+    toast.info("Payroll calculation is local-only; payroll persistence is not supported by the current backend contract.")
   }
 
   // Filtered employees list
@@ -925,7 +671,7 @@ export default function EmployeesPage() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                    <Select value={departmentFilter} onValueChange={(value) => setDepartmentFilter(value ?? "all")}>
                       <SelectTrigger className="w-[160px] h-8 text-xs">
                         <SelectValue placeholder="All Departments" />
                       </SelectTrigger>
@@ -1023,11 +769,29 @@ export default function EmployeesPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  onClick={() => handleOpenViewEmployee(emp)}
+                                  className="size-7 text-muted-foreground hover:text-foreground"
+                                  title="View Employee"
+                                >
+                                  <Eye className="size-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => handleOpenEditEmployee(emp)}
                                   className="size-7 text-muted-foreground hover:text-foreground"
                                   title="Edit Employee"
                                 >
                                   <Pencil className="size-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteEmployee(emp)}
+                                  className="size-7 text-destructive hover:bg-destructive/10"
+                                  title="Delete Employee"
+                                >
+                                  <Trash2 className="size-3.5" />
                                 </Button>
                               </div>
                             </td>
@@ -1066,9 +830,16 @@ export default function EmployeesPage() {
                   <CardContent className="p-4 pt-0 space-y-4">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">Select Staff Card to Tap</Label>
-                      <Select value={selectedTapEmployeeId} onValueChange={setSelectedTapEmployeeId}>
+                      <Select value={selectedTapEmployeeId} onValueChange={(value) => setSelectedTapEmployeeId(value ?? "")}>
                         <SelectTrigger className="h-9 text-xs">
-                          <SelectValue />
+                          <SelectValue placeholder="Select staff card">
+                            {(value) => {
+                              const employee = employees.find((item) => item.id === value)
+                              return employee
+                                ? `${employee.name} (${employee.rfidCardUid || "No UID"})`
+                                : "Select staff card"
+                            }}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {employees.map((emp) => (
@@ -1292,7 +1063,7 @@ export default function EmployeesPage() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Select value={payrollPeriod} onValueChange={setPayrollPeriod}>
+                    <Select value={payrollPeriod} onValueChange={(value) => setPayrollPeriod(value ?? "")}>
                       <SelectTrigger className="w-[180px] h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
@@ -1364,6 +1135,124 @@ export default function EmployeesPage() {
       </div>
 
       {/* ================================================================= */}
+      {/* View Employee Sheet                                               */}
+      {/* ================================================================= */}
+      <Sheet open={Boolean(selectedEmployee)} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
+        <SheetContent side="right" className="w-full p-0 sm:max-w-md">
+          {selectedEmployee && (
+            <>
+              <SheetHeader className="border-b p-4 text-left sm:p-6">
+                <div className="flex items-start justify-between gap-3 pr-8">
+                  <div>
+                    <SheetTitle>{selectedEmployee.name}</SheetTitle>
+                    <SheetDescription>
+                      {selectedEmployee.position} · {selectedEmployee.department}
+                    </SheetDescription>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      selectedEmployee.employmentStatus === "active"
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                        : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                    }
+                  >
+                    {selectedEmployee.employmentStatus}
+                  </Badge>
+                </div>
+              </SheetHeader>
+
+              <div className="space-y-4 p-4 sm:p-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Employee ID</p>
+                    <p className="mt-1 text-sm font-semibold">{selectedEmployee.employeeNumber}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Salary</p>
+                    <p className="mt-1 text-sm font-semibold">₱{selectedEmployee.basicSalary.toLocaleString()} / {selectedEmployee.salaryType}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Contact</p>
+                    <p className="mt-1 text-sm font-semibold">{selectedEmployee.contactNumber || "—"}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Date Hired</p>
+                    <p className="mt-1 text-sm font-semibold">{selectedEmployee.dateHired}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">RFID Badge</p>
+                  <p className="mt-1 font-mono text-sm font-semibold">
+                    {selectedEmployee.rfidCardUid || "No RFID card assigned"}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Daily / Hourly Rate</p>
+                  <p className="mt-1 text-sm font-semibold">
+                    ₱{selectedEmployee.dailyRate.toLocaleString()} / day · ₱{selectedEmployee.hourlyRate.toFixed(2)} / hr
+                  </p>
+                </div>
+              </div>
+
+              <SheetFooter className="flex-col gap-2 border-t bg-background p-4 sm:p-6">
+                <div className="grid w-full grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      handleOpenEditEmployee(selectedEmployee)
+                      setSelectedEmployee(null)
+                    }}
+                  >
+                    <Pencil className="mr-2 size-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => {
+                      setEmployeeToDelete(selectedEmployee)
+                      setIsDeleteEmployeeDialogOpen(true)
+                      setSelectedEmployee(null)
+                    }}
+                  >
+                    <Trash2 className="mr-2 size-4" />
+                    Delete
+                  </Button>
+                </div>
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog open={isDeleteEmployeeDialogOpen} onOpenChange={setIsDeleteEmployeeDialogOpen}>
+        <AlertDialogContent className="w-[92vw] max-w-md rounded-xl sm:rounded-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="size-5" />
+              Delete Employee
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm">
+              This will remove <strong>{employeeToDelete?.name}</strong> from the current employee roster only. This is local page data only because no backend delete action exists yet, and the record will reappear after reload.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel className="mt-0 w-full sm:w-auto">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteEmployee}
+              className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:w-auto"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ================================================================= */}
       {/* Add / Edit Employee Sheet                                         */}
       {/* ================================================================= */}
       <Sheet open={isEmployeeSheetOpen} onOpenChange={setIsEmployeeSheetOpen}>
@@ -1389,6 +1278,32 @@ export default function EmployeesPage() {
               />
             </div>
 
+            {!editingEmployee && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Login Email <span className="text-rose-500">*</span></Label>
+                  <Input
+                    type="email"
+                    value={empForm.email}
+                    onChange={(e) => setEmpForm((prev) => ({ ...prev, email: e.target.value }))}
+                    placeholder="staff@example.com"
+                    className="h-9 text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Temporary Password <span className="text-rose-500">*</span></Label>
+                  <Input
+                    type="password"
+                    value={empForm.password}
+                    onChange={(e) => setEmpForm((prev) => ({ ...prev, password: e.target.value }))}
+                    placeholder="At least 8 characters"
+                    minLength={8}
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Employee Number</Label>
@@ -1403,7 +1318,7 @@ export default function EmployeesPage() {
                 <Label className="text-xs font-medium">Department</Label>
                 <Select
                   value={empForm.department}
-                  onValueChange={(val) => setEmpForm((prev) => ({ ...prev, department: val }))}
+                  onValueChange={(val) => setEmpForm((prev) => ({ ...prev, department: val ?? "" }))}
                 >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue />
@@ -1532,7 +1447,7 @@ export default function EmployeesPage() {
                 <Label className="text-xs font-medium">Employee</Label>
                 <Select
                   value={newShift.employeeId}
-                  onValueChange={(val) => setNewShift((prev) => ({ ...prev, employeeId: val }))}
+                  onValueChange={(val) => setNewShift((prev) => ({ ...prev, employeeId: val ?? "" }))}
                 >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue />
@@ -1582,7 +1497,7 @@ export default function EmployeesPage() {
                 <Label className="text-xs font-medium">Assigned Station</Label>
                 <Select
                   value={newShift.station}
-                  onValueChange={(val) => setNewShift((prev) => ({ ...prev, station: val }))}
+                  onValueChange={(val) => setNewShift((prev) => ({ ...prev, station: val ?? "" }))}
                 >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue />
