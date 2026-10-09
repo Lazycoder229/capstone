@@ -9,9 +9,17 @@ import {
 } from "@/lib/validations"
 import { getDatabase } from "@/lib/database/data-source"
 import {
+  InventoryItemEntity,
+  InventoryStockLogEntity,
+  MenuItemEntity,
+  MenuItemIngredientEntity,
   OrderEntity,
+  OrderItemEntity,
   OrderStatus,
   OrderVoidEntity,
+  StockItemType,
+  StockLogType,
+  SystemSettingEntity,
   VoidStatus,
 } from "@/lib/database/entities"
 
@@ -64,21 +72,105 @@ export async function fetchVoids() {
   }
 }
 
+async function restoreOrderStock(
+  db: any,
+  orderId: string,
+  orderNumber: string,
+  staffId: string
+) {
+  const itemRepo = db.getRepository(OrderItemEntity)
+  const menuRepo = db.getRepository(MenuItemEntity)
+  const invRepo = db.getRepository(InventoryItemEntity)
+  const stockLogRepo = db.getRepository(InventoryStockLogEntity)
+  const ingredientRepo = db.getRepository(MenuItemIngredientEntity)
+
+  const orderItems = await itemRepo.find({ where: { orderId } })
+  for (const item of orderItems) {
+    const menuItem = await menuRepo.findOne({ where: { id: item.menuItemId } })
+    if (menuItem) {
+      if (menuItem.stockQuantity !== null) {
+        const currentStock = Number(menuItem.stockQuantity)
+        const newStock = currentStock + item.quantity
+        menuItem.stockQuantity = newStock
+        if (newStock > 0) menuItem.isAvailable = true
+        await menuRepo.save(menuItem)
+
+        const menuLog = stockLogRepo.create({
+          id: crypto.randomUUID(),
+          itemType: StockItemType.MENU_ITEM,
+          menuItemId: menuItem.id,
+          type: StockLogType.ADJUSTMENT,
+          quantityChange: String(item.quantity),
+          quantityAfter: String(newStock),
+          note: `Restocked from voided order ${orderNumber} (+${item.quantity})`,
+          performedByStaffId: staffId || "system",
+        })
+        await stockLogRepo.save(menuLog)
+      }
+
+      const recipeIngredients = await ingredientRepo.find({
+        where: { menuItemId: menuItem.id },
+      })
+      for (const ing of recipeIngredients) {
+        const invItem = await invRepo.findOne({ where: { id: ing.inventoryItemId } })
+        if (invItem) {
+          const qtyRestored = Number(ing.quantityUsed || 0) * item.quantity
+          const currentInvStock = Number(invItem.stockQuantity || 0)
+          const newInvStock = currentInvStock + qtyRestored
+          invItem.stockQuantity = String(newInvStock)
+          await invRepo.save(invItem)
+
+          const ingLog = stockLogRepo.create({
+            id: crypto.randomUUID(),
+            itemType: StockItemType.INGREDIENT,
+            inventoryItemId: invItem.id,
+            menuItemId: menuItem.id,
+            type: StockLogType.ADJUSTMENT,
+            quantityChange: String(qtyRestored),
+            quantityAfter: String(newInvStock),
+            note: `Restocked ingredients from voided order ${orderNumber}`,
+            performedByStaffId: staffId || "system",
+          })
+          await stockLogRepo.save(ingLog)
+        }
+      }
+    }
+  }
+}
+
 export const createVoidAction = createSafeAction(
   createOrderVoidSchema,
   async (input: CreateOrderVoidInput) => {
     const db = await getDatabase()
     const voidRepo = db.getRepository(OrderVoidEntity)
+    const orderRepo = db.getRepository(OrderEntity)
+    const settingsRepo = db.getRepository(SystemSettingEntity)
+
+    const settings = await settingsRepo.findOne({ where: {} })
+    const requiresManagerApproval = settings ? Boolean(settings.managerApprovalForVoids) : true
 
     const voidReq = voidRepo.create({
       id: crypto.randomUUID(),
       orderId: input.orderId,
       requestedByStaffId: input.requestedByStaffId,
       reason: input.reason,
-      status: VoidStatus.PENDING,
+      status: requiresManagerApproval ? VoidStatus.PENDING : VoidStatus.APPROVED,
+      resolvedAt: requiresManagerApproval ? null : new Date(),
+      resolutionNotes: requiresManagerApproval ? null : "Auto-approved per system configuration (manager approval disabled).",
     })
 
     await voidRepo.save(voidReq)
+
+    if (!requiresManagerApproval) {
+      const order = await orderRepo.findOne({ where: { id: input.orderId } })
+      if (order) {
+        order.status = OrderStatus.CANCELLED
+        await orderRepo.save(order)
+        await restoreOrderStock(db, order.id, order.orderNumber, input.requestedByStaffId)
+      }
+      return { voidId: voidReq.id, message: "Order voided and restocked immediately per system policy." }
+    }
+
     return { voidId: voidReq.id, message: "Void request submitted for manager approval." }
   }
 )
@@ -103,12 +195,13 @@ export const resolveVoidAction = createSafeAction(
     voidReq.resolvedAt = new Date()
     await voidRepo.save(voidReq)
 
-    // If approved, mark order as cancelled
+    // If approved, mark order as cancelled and restore stock
     if (input.status === "approved") {
       const order = await orderRepo.findOne({ where: { id: voidReq.orderId } })
       if (order) {
         order.status = OrderStatus.CANCELLED
         await orderRepo.save(order)
+        await restoreOrderStock(db, order.id, order.orderNumber, input.approvedByStaffId || "manager")
       }
     }
 

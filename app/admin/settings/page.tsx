@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   AlertCircle,
   Award,
@@ -8,8 +8,11 @@ import {
   CheckCircle2,
   Clock,
   Coins,
+  Crown,
   DollarSign,
+  Edit,
   FileText,
+  GitBranch,
   Globe,
   Hash,
   HelpCircle,
@@ -20,6 +23,7 @@ import {
   MapPin,
   Percent,
   Phone,
+  Plus,
   Printer,
   Receipt,
   RotateCcw,
@@ -30,6 +34,7 @@ import {
   Sparkles,
   Store,
   Tag,
+  Trash2,
   Utensils,
   Wifi,
   X,
@@ -38,6 +43,15 @@ import {
 import { toast } from "sonner"
 
 import { fetchSystemSettings, updateSystemSettingsAction } from "@/app/actions/settings"
+import {
+  fetchBranches,
+  createBranchAction,
+  updateBranchAction,
+  deleteBranchAction,
+  setActiveBranchAction,
+  type BranchResult,
+  type BranchFormData,
+} from "@/app/actions/branches"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -125,9 +139,9 @@ const EMPTY_SETTINGS: SystemSettingsValues = {
   address: "",
   tinNumber: "",
   birMin: "",
-  currencySymbol: "",
-  currencyCode: "",
-  timezone: "",
+  currencySymbol: "₱",
+  currencyCode: "PHP",
+  timezone: "Asia/Manila",
   vatEnabled: false,
   vatRate: 0,
   vatInclusive: false,
@@ -165,6 +179,24 @@ export default function SystemSettingsPage() {
   const [activeTab, setActiveTab] = useState("store")
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+
+  // Branch management state
+  const [branches, setBranches] = useState<BranchResult[]>([])
+  const [isBranchLoading, setIsBranchLoading] = useState(false)
+  const [isBranchDialogOpen, setIsBranchDialogOpen] = useState(false)
+  const [editingBranch, setEditingBranch] = useState<BranchResult | null>(null)
+  const [branchForm, setBranchForm] = useState<BranchFormData>({
+    name: "",
+    code: "",
+    type: "branch",
+    address: "",
+    contactNumber: "",
+    email: "",
+    isMain: false,
+    isActive: true,
+  })
+  const [isBranchSaving, setIsBranchSaving] = useState(false)
+  const [deletingBranchId, setDeletingBranchId] = useState<string | null>(null)
 
   // Interactive Live Calculator state
   const [sampleBillAmount, setSampleBillAmount] = useState<number>(1000)
@@ -207,6 +239,147 @@ export default function SystemSettingsPage() {
     void loadSettings()
   }, [])
 
+  // Load branches
+  const loadBranches = useCallback(async () => {
+    setIsBranchLoading(true)
+    const result = await fetchBranches()
+    if (result.success) {
+      setBranches(result.data)
+    } else {
+      toast.error(result.error || "Failed to load branches")
+    }
+    setIsBranchLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void loadBranches()
+  }, [loadBranches])
+
+  // Branch form helpers
+  const openCreateBranchDialog = () => {
+    setEditingBranch(null)
+    setBranchForm({
+      name: "",
+      code: "",
+      type: "branch",
+      address: "",
+      contactNumber: "",
+      email: "",
+      isMain: false,
+      isActive: true,
+    })
+    setIsBranchDialogOpen(true)
+  }
+
+  const openEditBranchDialog = (branch: BranchResult) => {
+    setEditingBranch(branch)
+    setBranchForm({
+      name: branch.name,
+      code: branch.code,
+      type: branch.type,
+      address: branch.address || "",
+      contactNumber: branch.contactNumber || "",
+      email: branch.email || "",
+      isMain: branch.isMain,
+      isActive: branch.isActive,
+    })
+    setIsBranchDialogOpen(true)
+  }
+
+  const handleSaveBranch = async () => {
+    setIsBranchSaving(true)
+    if (editingBranch) {
+      const result = await updateBranchAction(editingBranch.id, branchForm)
+      if (!result.success) {
+        toast.error(result.error)
+        setIsBranchSaving(false)
+        return
+      }
+      toast.success("Branch updated successfully")
+    } else {
+      const result = await createBranchAction(branchForm)
+      if (!result.success) {
+        toast.error(result.error)
+        setIsBranchSaving(false)
+        return
+      }
+      toast.success("Branch created successfully")
+    }
+    setIsBranchSaving(false)
+    setIsBranchDialogOpen(false)
+    await loadBranches()
+    // Re-fetch settings in case branch sync updated them
+    const settingsResult = await fetchSystemSettings()
+    if (settingsResult.success && settingsResult.data) {
+      const loadedSettings: SystemSettingsValues = {
+        ...EMPTY_SETTINGS,
+        ...settingsResult.data,
+        orderNumberPrefix: settingsResult.data.orderNumberPrefix?.trim() || EMPTY_SETTINGS.orderNumberPrefix,
+        openingTime: /^\d{2}:\d{2}$/.test(settingsResult.data.openingTime || "")
+          ? settingsResult.data.openingTime
+          : EMPTY_SETTINGS.openingTime,
+        closingTime: /^\d{2}:\d{2}$/.test(settingsResult.data.closingTime || "")
+          ? settingsResult.data.closingTime
+          : EMPTY_SETTINGS.closingTime,
+        tinNumber: settingsResult.data.tinNumber ?? "",
+        birMin: settingsResult.data.birMin ?? "",
+        receiptHeader: settingsResult.data.receiptHeader ?? "",
+        receiptFooter: settingsResult.data.receiptFooter ?? "",
+        wifiSsid: settingsResult.data.wifiSsid ?? "",
+        wifiPassword: settingsResult.data.wifiPassword ?? "",
+      }
+      setSettings(loadedSettings)
+      setInitialSettings(loadedSettings)
+    }
+  }
+
+  const handleDeleteBranch = async (id: string) => {
+    const result = await deleteBranchAction(id)
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    toast.success("Branch deleted")
+    setDeletingBranchId(null)
+    await loadBranches()
+  }
+
+  const handleSetActiveBranch = async (id: string) => {
+    const result = await setActiveBranchAction(id)
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+    toast.success("Active branch updated. Settings synced.")
+    await loadBranches()
+    // Re-fetch settings since branch sync updates them
+    const settingsResult = await fetchSystemSettings()
+    if (settingsResult.success && settingsResult.data) {
+      const loadedSettings: SystemSettingsValues = {
+        ...EMPTY_SETTINGS,
+        ...settingsResult.data,
+        orderNumberPrefix: settingsResult.data.orderNumberPrefix?.trim() || EMPTY_SETTINGS.orderNumberPrefix,
+        openingTime: /^\d{2}:\d{2}$/.test(settingsResult.data.openingTime || "")
+          ? settingsResult.data.openingTime
+          : EMPTY_SETTINGS.openingTime,
+        closingTime: /^\d{2}:\d{2}$/.test(settingsResult.data.closingTime || "")
+          ? settingsResult.data.closingTime
+          : EMPTY_SETTINGS.closingTime,
+        tinNumber: settingsResult.data.tinNumber ?? "",
+        birMin: settingsResult.data.birMin ?? "",
+        receiptHeader: settingsResult.data.receiptHeader ?? "",
+        receiptFooter: settingsResult.data.receiptFooter ?? "",
+        wifiSsid: settingsResult.data.wifiSsid ?? "",
+        wifiPassword: settingsResult.data.wifiPassword ?? "",
+      }
+      setSettings(loadedSettings)
+      setInitialSettings(loadedSettings)
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("system_settings_updated"))
+    }
+  }
+
   // Track unsaved changes
   const isDirty = useMemo(() => {
     return JSON.stringify(settings) !== JSON.stringify(initialSettings)
@@ -228,9 +401,9 @@ export default function SystemSettingsPage() {
       address: settings.address,
       tinNumber: settings.tinNumber || undefined,
       birMin: settings.birMin || undefined,
-      currencySymbol: settings.currencySymbol,
-      currencyCode: settings.currencyCode,
-      timezone: settings.timezone,
+      currencySymbol: settings.currencySymbol?.trim() || "₱",
+      currencyCode: settings.currencyCode?.trim() || "PHP",
+      timezone: settings.timezone?.trim() || "Asia/Manila",
       vatEnabled: settings.vatEnabled,
       vatRate: settings.vatRate,
       vatInclusive: settings.vatInclusive,
@@ -263,6 +436,9 @@ export default function SystemSettingsPage() {
       return
     }
     setInitialSettings(settings)
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("system_settings_updated"))
+    }
     toast.success(result.data.message, {
       description: "Your POS configuration changes have been applied across all terminals.",
     })
@@ -428,10 +604,14 @@ export default function SystemSettingsPage() {
 
         {/* Tabbed Configuration Interface */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-5 h-auto p-1 bg-muted/60 border border-border">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-6 h-auto p-1 bg-muted/60 border border-border">
             <TabsTrigger value="store" className="text-xs py-2 gap-1.5">
               <Building2 className="size-3.5" />
               <span>Store Profile</span>
+            </TabsTrigger>
+            <TabsTrigger value="branches" className="text-xs py-2 gap-1.5">
+              <GitBranch className="size-3.5" />
+              <span>Branches</span>
             </TabsTrigger>
             <TabsTrigger value="taxes" className="text-xs py-2 gap-1.5">
               <Percent className="size-3.5" />
@@ -639,6 +819,355 @@ export default function SystemSettingsPage() {
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          {/* =============================================================== */}
+          {/* TAB: BRANCH MANAGEMENT                                          */}
+          {/* =============================================================== */}
+          <TabsContent value="branches" className="space-y-4">
+            <div className="space-y-4">
+              {/* Branch Header */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-0.5">
+                  <h2 className="text-base font-semibold flex items-center gap-2">
+                    <GitBranch className="size-4 text-violet-500" />
+                    Branch Management
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Manage store locations. The active (main) branch syncs its details to System Settings automatically.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={openCreateBranchDialog}
+                  className="h-9 text-xs gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+                >
+                  <Plus className="size-3.5" />
+                  <span>Add Branch</span>
+                </Button>
+              </div>
+
+              {/* Branch Info Banner */}
+              <div className="p-3 bg-violet-500/10 border border-violet-500/20 rounded-lg text-xs space-y-1">
+                <div className="font-semibold flex items-center gap-1.5 text-violet-700 dark:text-violet-300">
+                  <Info className="size-3.5 text-violet-500" />
+                  Branch ↔ Settings Sync
+                </div>
+                <p className="text-[11px] text-violet-800 dark:text-violet-300">
+                  Setting a branch as <strong>"Active / Main"</strong> automatically updates the Store Profile tab with the branch's name, address, contact number, and email.
+                </p>
+              </div>
+
+              {/* Branch Grid */}
+              {isBranchLoading ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i} className="border bg-card shadow-xs animate-pulse">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="h-4 bg-muted rounded w-3/4" />
+                        <div className="h-3 bg-muted rounded w-1/2" />
+                        <div className="h-3 bg-muted rounded w-full" />
+                        <div className="h-8 bg-muted rounded w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : branches.length === 0 ? (
+                <Card className="border bg-card shadow-xs">
+                  <CardContent className="p-8 text-center space-y-3">
+                    <GitBranch className="size-10 text-muted-foreground/40 mx-auto" />
+                    <div>
+                      <div className="text-sm font-semibold text-muted-foreground">No Branches Yet</div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Add your first store branch to enable multi-location management and settings sync.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={openCreateBranchDialog}
+                      className="h-8 text-xs gap-1.5"
+                    >
+                      <Plus className="size-3" />
+                      Create First Branch
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {branches.map((branch) => (
+                    <Card
+                      key={branch.id}
+                      className={`border bg-card shadow-xs transition-all ${
+                        branch.isMain
+                          ? "border-violet-500/50 bg-violet-500/5 ring-1 ring-violet-500/20"
+                          : ""
+                      }`}
+                    >
+                      <CardHeader className="p-4 pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5 min-w-0">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-1.5 truncate">
+                              {branch.isMain && <Crown className="size-3.5 text-amber-500 shrink-0" />}
+                              {branch.name}
+                            </CardTitle>
+                            <CardDescription className="text-[10px] font-mono">{branch.code}</CardDescription>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {branch.isMain && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
+                                Main
+                              </Badge>
+                            )}
+                            <Badge
+                              variant="outline"
+                              className={`text-[9px] px-1.5 py-0 ${
+                                branch.isActive
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                              }`}
+                            >
+                              {branch.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-1 space-y-2">
+                        {branch.address && (
+                          <div className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                            <MapPin className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
+                            <span className="line-clamp-2">{branch.address}</span>
+                          </div>
+                        )}
+                        {branch.contactNumber && (
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            <Phone className="size-3 shrink-0 text-muted-foreground/60" />
+                            <span>{branch.contactNumber}</span>
+                          </div>
+                        )}
+                        {branch.email && (
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            <Mail className="size-3 shrink-0 text-muted-foreground/60" />
+                            <span className="truncate">{branch.email}</span>
+                          </div>
+                        )}
+                        <div className="text-[10px] text-muted-foreground/60 capitalize">
+                          Type: {branch.type}
+                        </div>
+                      </CardContent>
+                      <CardFooter className="p-3 pt-0 gap-1.5 flex-wrap">
+                        {!branch.isMain && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSetActiveBranch(branch.id)}
+                            className="h-7 text-[10px] gap-1 text-violet-600 border-violet-500/30 hover:bg-violet-500/10"
+                          >
+                            <Crown className="size-3" />
+                            Set as Main
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditBranchDialog(branch)}
+                          className="h-7 text-[10px] gap-1"
+                        >
+                          <Edit className="size-3" />
+                          Edit
+                        </Button>
+                        {!branch.isMain && (
+                          <>
+                            {deletingBranchId === branch.id ? (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleDeleteBranch(branch.id)}
+                                  className="h-7 text-[10px] gap-1"
+                                >
+                                  Confirm
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setDeletingBranchId(null)}
+                                  className="h-7 text-[10px]"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setDeletingBranchId(branch.id)}
+                                className="h-7 text-[10px] gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10"
+                              >
+                                <Trash2 className="size-3" />
+                                Delete
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Branch Create/Edit Dialog */}
+            {isBranchDialogOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center">
+                <div
+                  className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                  onClick={() => setIsBranchDialogOpen(false)}
+                />
+                <div className="relative z-10 w-full max-w-lg mx-4 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                  <div className="p-4 border-b border-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <GitBranch className="size-4 text-violet-500" />
+                      <h3 className="text-sm font-semibold">
+                        {editingBranch ? "Edit Branch" : "Create New Branch"}
+                      </h3>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setIsBranchDialogOpen(false)}
+                      className="h-7 w-7 p-0"
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                  <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">
+                          Branch Name <span className="text-rose-500">*</span>
+                        </Label>
+                        <Input
+                          value={branchForm.name}
+                          onChange={(e) => setBranchForm((prev) => ({ ...prev, name: e.target.value }))}
+                          placeholder="e.g. Main Branch - Manila"
+                          className="h-9 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">
+                          Branch Code <span className="text-rose-500">*</span>
+                        </Label>
+                        <Input
+                          value={branchForm.code}
+                          onChange={(e) => setBranchForm((prev) => ({ ...prev, code: e.target.value }))}
+                          placeholder="e.g. MNL-001"
+                          className="h-9 text-xs font-mono uppercase"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Unique identifier for this branch</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">Type</Label>
+                        <Select
+                          value={branchForm.type || "branch"}
+                          onValueChange={(val) => setBranchForm((prev) => ({ ...prev, type: val }))}
+                        >
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="main">Main Office</SelectItem>
+                            <SelectItem value="branch">Branch</SelectItem>
+                            <SelectItem value="kiosk">Kiosk</SelectItem>
+                            <SelectItem value="franchise">Franchise</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium flex items-center gap-1.5">
+                          <Phone className="size-3 text-muted-foreground" />
+                          Contact Number
+                        </Label>
+                        <Input
+                          value={branchForm.contactNumber || ""}
+                          onChange={(e) => setBranchForm((prev) => ({ ...prev, contactNumber: e.target.value }))}
+                          placeholder="+63 917 123 4567"
+                          className="h-9 text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium flex items-center gap-1.5">
+                        <Mail className="size-3 text-muted-foreground" />
+                        Email Address
+                      </Label>
+                      <Input
+                        type="email"
+                        value={branchForm.email || ""}
+                        onChange={(e) => setBranchForm((prev) => ({ ...prev, email: e.target.value }))}
+                        placeholder="branch@restaurant.ph"
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium flex items-center gap-1.5">
+                        <MapPin className="size-3 text-muted-foreground" />
+                        Physical Address
+                      </Label>
+                      <Textarea
+                        value={branchForm.address || ""}
+                        onChange={(e) => setBranchForm((prev) => ({ ...prev, address: e.target.value }))}
+                        placeholder="Street, Barangay, City, Postal Code"
+                        className="text-xs min-h-[60px] resize-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-semibold">Active</div>
+                          <div className="text-[10px] text-muted-foreground">Branch is operational</div>
+                        </div>
+                        <Switch
+                          checked={branchForm.isActive ?? true}
+                          onCheckedChange={(val) => setBranchForm((prev) => ({ ...prev, isActive: val }))}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-semibold">Main Branch</div>
+                          <div className="text-[10px] text-muted-foreground">Syncs to Settings</div>
+                        </div>
+                        <Switch
+                          checked={branchForm.isMain ?? false}
+                          onCheckedChange={(val) => setBranchForm((prev) => ({ ...prev, isMain: val }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 border-t border-border flex items-center justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsBranchDialogOpen(false)}
+                      className="h-9 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSaveBranch}
+                      disabled={isBranchSaving || !branchForm.name?.trim() || !branchForm.code?.trim()}
+                      className="h-9 text-xs gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+                    >
+                      <Save className="size-3.5" />
+                      {isBranchSaving ? "Saving..." : editingBranch ? "Update Branch" : "Create Branch"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* =============================================================== */}

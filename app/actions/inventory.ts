@@ -13,12 +13,14 @@ import {
 } from "@/lib/validations"
 import { getDatabase } from "@/lib/database/data-source"
 import {
+  CategoryEntity,
   InventoryCategoryEntity,
   InventoryItemEntity,
   InventoryStockLogEntity,
   MenuItemEntity,
   StockItemType,
   StockLogType,
+  SystemSettingEntity,
 } from "@/lib/database/entities"
 import { toPlainArray } from "@/lib/utils/serialize"
 
@@ -29,10 +31,24 @@ export async function fetchInventory() {
     const itemRepo = db.getRepository(InventoryItemEntity)
     const logRepo = db.getRepository(InventoryStockLogEntity)
     const menuRepo = db.getRepository(MenuItemEntity)
+    const menuCatRepo = db.getRepository(CategoryEntity)
+    const settingsRepo = db.getRepository(SystemSettingEntity)
 
-    let categories = await catRepo.find({ order: { name: "ASC" } })
-    let items = await itemRepo.find({ order: { name: "ASC" } })
+    const settings = await settingsRepo.findOne({ where: {} })
+    const lowStockThresholdAlert = settings ? Number(settings.lowStockThresholdAlert ?? 10) : 10
+
+    const [categories, items, menuItems, menuCats, logs] = await Promise.all([
+      catRepo.find({ order: { name: "ASC" } }),
+      itemRepo.find({ order: { name: "ASC" } }),
+      menuRepo.find({ order: { name: "ASC" } }),
+      menuCatRepo.find(),
+      logRepo.find({ order: { createdAt: "DESC" }, take: 100 }),
+    ])
+
     const catMap = new Map(categories.map((c) => [c.id, c.name]))
+    const menuCatMap = new Map(menuCats.map((c) => [c.id, c.name]))
+    const menuMap = new Map(menuItems.map((m) => [m.id, m]))
+    const itemMap = new Map(items.map((i) => [i.id, i]))
 
     const formattedItems = items.map((i) => ({
       id: i.id,
@@ -47,33 +63,46 @@ export async function fetchInventory() {
       isActive: i.isActive,
     }))
 
-    const logs = await logRepo.find({ order: { createdAt: "DESC" }, take: 50 })
-    const formattedLogs = logs.map((l) => ({
-      id: l.id,
-      itemType: l.itemType,
-      inventoryItemId: l.inventoryItemId,
-      menuItemId: l.menuItemId,
-      itemName: "Stock Item",
-      unit: "pcs",
-      type: l.type,
-      quantityChange: Number(l.quantityChange),
-      quantityAfter: l.quantityAfter ? Number(l.quantityAfter) : null,
-      note: l.note,
-      performedByStaffId: l.performedByStaffId,
-      staffName: "Staff Member",
-      createdAt: new Date(l.createdAt).toLocaleString([], {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    }))
+    const formattedLogs = logs.map((l) => {
+      let itemName = "Unknown Item"
+      let unit = "pcs"
 
-    const menuItems = await menuRepo.find({ order: { name: "ASC" } })
+      if (l.itemType === StockItemType.MENU_ITEM && l.menuItemId) {
+        const m = menuMap.get(l.menuItemId)
+        itemName = m ? m.name : "Menu Item"
+        unit = "pcs"
+      } else if (l.inventoryItemId) {
+        const inv = itemMap.get(l.inventoryItemId)
+        itemName = inv ? inv.name : "Stock Item"
+        unit = inv ? inv.unit : "units"
+      }
+
+      return {
+        id: l.id,
+        itemType: l.itemType,
+        inventoryItemId: l.inventoryItemId,
+        menuItemId: l.menuItemId,
+        itemName,
+        unit,
+        type: l.type,
+        quantityChange: Number(l.quantityChange),
+        quantityAfter: l.quantityAfter ? Number(l.quantityAfter) : null,
+        note: l.note,
+        performedByStaffId: l.performedByStaffId,
+        staffName: l.performedByStaffId === "system" ? "POS System" : "Staff Member",
+        createdAt: new Date(l.createdAt).toLocaleString([], {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      }
+    })
+
     const formattedMenuStock = menuItems.map((m) => ({
       id: m.id,
       name: m.name,
-      category: "Menu Item",
+      category: menuCatMap.get(m.categoryId) || "General",
       price: Number(m.price),
       stockQuantity: m.stockQuantity,
       isAvailable: m.isAvailable,
@@ -86,6 +115,7 @@ export async function fetchInventory() {
         items: formattedItems,
         logs: formattedLogs,
         menuStock: formattedMenuStock,
+        lowStockThresholdAlert,
       },
     }
   } catch (error: any) {
@@ -174,6 +204,9 @@ export const adjustStockAction = createSafeAction(
       quantityAfter = Math.max(0, updated)
 
       menu.stockQuantity = quantityAfter
+      if (quantityAfter > 0 && !menu.isAvailable) {
+        menu.isAvailable = true
+      }
       await menuRepo.save(menu)
     } else {
       throw new Error("A valid inventory item or menu item relation is required.")

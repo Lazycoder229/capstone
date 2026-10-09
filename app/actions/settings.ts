@@ -57,10 +57,44 @@ export async function fetchSystemSettings() {
       take: 1,
     })
 
-    const current = latestSettings[0] ?? null
+    let current = latestSettings[0] ?? null
 
     if (!current) {
-      return { success: true, data: null }
+      current = settingsRepo.create({
+        id: crypto.randomUUID(),
+        restaurantName: "PRIME Roast & Grill",
+        branchName: "Main Branch - Manila",
+        contactNumber: "+63 917 123 4567",
+        email: "contact@primerestaurant.ph",
+        address: "123 Culinary Boulevard, Metro Manila, Philippines",
+        tinNumber: "123-456-789-000",
+        birMin: "MIN-2024-001234",
+        currencySymbol: "₱",
+        currencyCode: "PHP",
+        timezone: "Asia/Manila",
+        vatEnabled: true,
+        vatRate: "12.00",
+        vatInclusive: true,
+        serviceChargeEnabled: false,
+        serviceChargeRate: "5.00",
+        seniorPwdDiscountEnabled: true,
+        orderNumberPrefix: "ORD-",
+        autoAcceptQrOrders: false,
+        requireTableSelection: true,
+        managerApprovalForVoids: true,
+        lowStockThresholdAlert: 10,
+        receiptHeader: "PRIME Roast & Grill\nCulinary Boulevard, Manila",
+        receiptFooter: "Thank you for dining with us! Please come again.",
+        printReceiptAuto: true,
+        printKotAuto: true,
+        showWifiOnReceipt: true,
+        wifiSsid: "PRIME-Guest",
+        wifiPassword: "deliciousroast",
+        openingTime: "08:00",
+        closingTime: "22:00",
+        cashDrawerOpeningBalanceRequired: true,
+      })
+      await settingsRepo.save(current)
     }
 
     return {

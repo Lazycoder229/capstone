@@ -58,3 +58,43 @@ export const createExpenseAction = createSafeAction(
     }
   }
 )
+
+export async function fetchExpensesAction(limit = 50) {
+  try {
+    const db = await getDatabase()
+    const expenseRepo = db.getRepository(ExpenseEntity)
+    const catRepo = db.getRepository(ExpenseCategoryEntity)
+
+    const [expenses, categories] = await Promise.all([
+      expenseRepo.find({
+        order: { expenseDate: "DESC" },
+        take: limit,
+      }),
+      catRepo.find({ order: { name: "ASC" } }),
+    ])
+
+    const catMap = new Map(categories.map((c) => [c.id, c.name]))
+
+    return {
+      success: true,
+      data: expenses.map((e) => ({
+        id: e.id,
+        categoryId: e.categoryId,
+        categoryName: catMap.get(e.categoryId) || "General",
+        description: e.description,
+        amount: Number(e.amount),
+        expenseDate: e.expenseDate,
+        receiptReference: e.receiptReference,
+        notes: e.notes,
+        recordedByStaffId: e.recordedByStaffId,
+      })),
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Failed to fetch expenses",
+      data: [],
+    }
+  }
+}
+

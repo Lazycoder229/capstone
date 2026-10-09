@@ -27,7 +27,13 @@ abstract class TimestampedEntity extends IdEntity {
 export class AppUserEntity extends IdEntity {
   @Column({ type: "varchar", length: 36, nullable: true }) roleId!: string | null
   @Column({ type: "varchar", length: 255, nullable: true, unique: true }) email!: string | null
-  @Column({ type: "varchar", length: 255, nullable: true }) passwordHash!: string | null
+  @Column({ name: "password", type: "varchar", length: 255, nullable: true }) passwordHash!: string | null
+  get password(): string | null {
+    return this.passwordHash
+  }
+  set password(value: string | null) {
+    this.passwordHash = value
+  }
   @Column({ type: "varchar", length: 100, nullable: true }) name!: string | null
   @Column({ type: "varchar", length: 20, nullable: true }) contactNumber!: string | null
   @Column({ default: true }) isActive!: boolean
@@ -117,8 +123,10 @@ export class CustomerEntity extends TimestampedEntity {
   @Column({ type: "varchar", length: 255, nullable: true }) password!: string | null
   @Column({ length: 100 }) name!: string
   @Column({ type: "varchar", length: 20, nullable: true }) contactNumber!: string | null
+  @Column({ type: "date", nullable: true }) dateOfBirth!: string | null
   @Column({ default: 0 }) loyaltyPointsBalance!: number
   @Column({ default: true }) isGuest!: boolean
+  @Column({ type: "varchar", length: 50, nullable: true }) pwdIdNumber!: string | null
 }
 
 @Entity("categories")
@@ -148,6 +156,19 @@ export class RestaurantTableEntity extends IdEntity {
   @Column({ type: "varchar", length: 500, nullable: true }) qrCodeUrl!: string | null
   @Column({ type: "enum", enum: RestaurantTableStatus, default: RestaurantTableStatus.AVAILABLE }) status!: RestaurantTableStatus
   @CreateDateColumn({ type: "datetime" }) createdAt!: Date
+  @Column({ type: "datetime", nullable: true }) occupiedAt!: Date | null
+}
+
+@Entity("branches")
+export class BranchEntity extends TimestampedEntity {
+  @Column({ length: 120 }) name!: string
+  @Column({ length: 30, unique: true }) code!: string
+  @Column({ length: 20, default: "branch" }) type!: string
+  @Column({ type: "text", nullable: true }) address!: string | null
+  @Column({ type: "varchar", length: 50, nullable: true }) contactNumber!: string | null
+  @Column({ type: "varchar", length: 120, nullable: true }) email!: string | null
+  @Column({ default: false }) isMain!: boolean
+  @Column({ default: true }) isActive!: boolean
 }
 
 export enum OrderType { QR = "qr", COUNTER = "counter" }
@@ -164,6 +185,11 @@ export class OrderEntity extends TimestampedEntity {
   @Column({ type: "decimal", precision: 10, scale: 2, default: 0 }) tax!: string
   @Column({ type: "decimal", precision: 10, scale: 2 }) total!: string
   @Column({ type: "varchar", length: 36, nullable: true }) createdByStaffId!: string | null
+  @Column({ type: "varchar", length: 32, default: "not_required" }) paymentStatus!: string
+  @Column({ type: "varchar", length: 20, nullable: true }) paymentMethod!: string | null
+  @Column({ type: "varchar", length: 100, nullable: true }) paymentReference!: string | null
+  @Column({ type: "char", length: 64, nullable: true }) guestIpHash!: string | null
+  @Column({ type: "datetime", nullable: true }) adminHiddenAt!: Date | null
 }
 
 @Entity("order_items")
@@ -214,7 +240,7 @@ export class ReservationEntity extends IdEntity {
   @CreateDateColumn({ type: "datetime" }) createdAt!: Date
 }
 
-export enum PaymentMethod { CASH = "cash", GCASH = "gcash", CARD = "card", OTHER = "other" }
+export enum PaymentMethod { CASH = "cash", GCASH = "gcash", MAYA = "maya", CARD = "card", OTHER = "other" }
 @Entity("payments")
 export class PaymentEntity extends IdEntity {
   @Column({ length: 36 }) orderId!: string
@@ -242,6 +268,8 @@ export class LoyaltyTransactionEntity extends IdEntity {
   @Column() points!: number
   @Column() balanceAfter!: number
   @CreateDateColumn({ type: "datetime" }) createdAt!: Date
+  @Column({ type: "varchar", length: 36, nullable: true }) rewardId!: string | null
+  @Column({ type: "varchar", length: 150, nullable: true }) rewardName!: string | null
 }
 
 @Entity("loyalty_rewards")
@@ -519,10 +547,30 @@ export class SystemSettingEntity extends IdEntity {
   @UpdateDateColumn({ type: "datetime" }) updatedAt!: Date
 }
 
+@Entity("password_reset_tokens")
+export class PasswordResetTokenEntity {
+  @PrimaryGeneratedColumn({ type: "int", unsigned: true }) id!: number
+  @Column({ length: 16 }) accountType!: string
+  @Column({ length: 36 }) accountId!: string
+  @Column({ length: 64 }) tokenHash!: string
+  @Column({ type: "datetime" }) expiresAt!: Date
+  @Column({ type: "datetime", nullable: true }) usedAt!: Date | null
+  @CreateDateColumn({ type: "datetime" }) createdAt!: Date
+}
+
+@Entity("refresh_tokens")
+export class RefreshTokenEntity {
+  @PrimaryGeneratedColumn({ type: "int", unsigned: true }) id!: number
+  @Column({ length: 36 }) userId!: string
+  @Column({ type: "text" }) token!: string
+  @Column({ type: "datetime" }) expiresAt!: Date
+  @Column({ type: "text" }) jti!: string
+}
+
 export const domainEntities = [
   AccountEntity, SessionEntity, VerificationTokenEntity,
   RoleEntity, PermissionEntity, RolePermissionEntity, CustomerEntity,
-  CategoryEntity, MenuItemEntity, RestaurantTableEntity, OrderEntity,
+  CategoryEntity, MenuItemEntity, RestaurantTableEntity, BranchEntity, OrderEntity,
   OrderItemEntity, OrderStatusHistoryEntity, OrderVoidEntity, ReservationEntity,
   PaymentEntity, LoyaltySettingEntity, LoyaltyTransactionEntity, LoyaltyRewardEntity,
   EmployeeEntity, DeductionTypeEntity, PayrollPeriodEntity, PayrollRecordEntity,
@@ -533,6 +581,8 @@ export const domainEntities = [
   ExpenseCategoryEntity, ExpenseEntity,
   SystemSettingEntity,
   AttendanceLogEntity,
+  PasswordResetTokenEntity,
+  RefreshTokenEntity,
 ]
 
 

@@ -46,8 +46,13 @@ export const createOrderSchema = z.object({
   orderType: orderTypeEnum.optional().default("counter"),
   items: z.array(createOrderItemSchema).min(1, "Order must have at least one item"),
   discount: currencyAmountSchema.optional().default(0),
+  discountTypeId: z.string().nullable().optional(),
+  discountIdNumber: z.string().nullable().optional(),
+  discountHolderName: z.string().nullable().optional(),
+  promotionId: z.string().nullable().optional(),
   createdByStaffId: nullableIdSchema,
 })
+
 
 export const updateOrderStatusSchema = z.object({
   orderId: idSchema,

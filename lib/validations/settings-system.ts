@@ -13,9 +13,18 @@ export const systemSettingSchema = z.object({
   address: z.string().min(1, "Address is required"),
   tinNumber: z.string().max(50).nullable().optional(),
   birMin: z.string().max(50).nullable().optional(),
-  currencySymbol: z.string().min(1).max(10).default("₱"),
-  currencyCode: z.string().min(1).max(10).default("PHP"),
-  timezone: z.string().min(1).max(50).default("Asia/Manila"),
+  currencySymbol: z.preprocess(
+    (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
+    z.string().min(1).max(10).default("₱")
+  ),
+  currencyCode: z.preprocess(
+    (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
+    z.string().min(1).max(10).default("PHP")
+  ),
+  timezone: z.preprocess(
+    (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
+    z.string().min(1).max(50).default("Asia/Manila")
+  ),
   vatEnabled: z.boolean().default(true),
   vatRate: currencyAmountSchema.default(12),
   vatInclusive: z.boolean().default(true),

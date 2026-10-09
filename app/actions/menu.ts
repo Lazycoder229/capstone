@@ -12,7 +12,13 @@ import {
   type UpdateMenuItemInput,
 } from "@/lib/validations"
 import { getDatabase } from "@/lib/database/data-source"
-import { CategoryEntity, MenuItemEntity } from "@/lib/database/entities"
+import {
+  CategoryEntity,
+  InventoryStockLogEntity,
+  MenuItemEntity,
+  StockItemType,
+  StockLogType,
+} from "@/lib/database/entities"
 import { toPlain, toPlainArray } from "@/lib/utils/serialize"
 
 export async function fetchCategories() {
@@ -115,6 +121,7 @@ export const createMenuItemAction = createSafeAction(
   async (input: CreateMenuItemInput) => {
     const db = await getDatabase()
     const repo = db.getRepository(MenuItemEntity)
+    const logRepo = db.getRepository(InventoryStockLogEntity)
 
     const item = repo.create({
       id: crypto.randomUUID(),
@@ -128,6 +135,22 @@ export const createMenuItemAction = createSafeAction(
     })
 
     await repo.save(item)
+
+    // Automatically record in inventory stock logs if stock is tracked
+    if (input.stockQuantity !== undefined && input.stockQuantity !== null) {
+      const log = logRepo.create({
+        id: crypto.randomUUID(),
+        itemType: StockItemType.MENU_ITEM,
+        menuItemId: item.id,
+        type: StockLogType.STOCK_IN,
+        quantityChange: String(input.stockQuantity),
+        quantityAfter: String(input.stockQuantity),
+        note: `Initial stock for ${item.name} upon menu item creation`,
+        performedByStaffId: "system",
+      })
+      await logRepo.save(log)
+    }
+
     return { item: { ...toPlain(item), price: Number(item.price) }, message: "Menu item created successfully." }
   }
 )
@@ -137,9 +160,12 @@ export const updateMenuItemAction = createSafeAction(
   async (input: UpdateMenuItemInput) => {
     const db = await getDatabase()
     const repo = db.getRepository(MenuItemEntity)
+    const logRepo = db.getRepository(InventoryStockLogEntity)
 
     const item = await repo.findOne({ where: { id: input.id } })
     if (!item) throw new Error("Menu item not found.")
+
+    const prevStock = item.stockQuantity
 
     if (input.categoryId !== undefined) item.categoryId = input.categoryId
     if (input.name !== undefined) item.name = input.name
@@ -150,6 +176,28 @@ export const updateMenuItemAction = createSafeAction(
     if (input.stockQuantity !== undefined) item.stockQuantity = input.stockQuantity ?? null
 
     await repo.save(item)
+
+    // Log stock adjustment if stock quantity was modified
+    if (
+      input.stockQuantity !== undefined &&
+      input.stockQuantity !== null &&
+      input.stockQuantity !== prevStock
+    ) {
+      const prevVal = prevStock ?? 0
+      const diff = input.stockQuantity - prevVal
+      const log = logRepo.create({
+        id: crypto.randomUUID(),
+        itemType: StockItemType.MENU_ITEM,
+        menuItemId: item.id,
+        type: diff >= 0 ? StockLogType.STOCK_IN : StockLogType.ADJUSTMENT,
+        quantityChange: String(diff),
+        quantityAfter: String(input.stockQuantity),
+        note: `Stock adjustment for ${item.name} (${prevStock ?? "unlimited"} -> ${input.stockQuantity})`,
+        performedByStaffId: "system",
+      })
+      await logRepo.save(log)
+    }
+
     return { item: { ...toPlain(item), price: Number(item.price) }, message: "Menu item updated successfully." }
   }
 )
@@ -158,6 +206,9 @@ export async function deleteMenuItemAction(id: string) {
   try {
     const db = await getDatabase()
     const repo = db.getRepository(MenuItemEntity)
+    const logRepo = db.getRepository(InventoryStockLogEntity)
+
+    await logRepo.delete({ menuItemId: id })
     await repo.delete(id)
     return { success: true, message: "Menu item deleted successfully." }
   } catch (err: any) {

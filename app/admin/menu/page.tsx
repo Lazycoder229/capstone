@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectTrigger,
@@ -99,15 +100,20 @@ const emptyCategoryForm = {
 export default function MenuPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [items, setItems] = useState<MenuItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    fetchCategories().then((res) => {
-      if (res.success) setCategories(res.data as Category[])
-    })
-    fetchMenuItems().then((res) => {
-      if (res.success) setItems(res.data as MenuItem[])
-    })
+    setIsLoading(true)
+    Promise.all([fetchCategories(), fetchMenuItems()])
+      .then(([catRes, itemRes]) => {
+        if (catRes.success) setCategories(catRes.data as Category[])
+        if (itemRes.success) setItems(itemRes.data as MenuItem[])
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
   }, [])
+
 
   const [activeCategory, setActiveCategory] = useState("all")
   const [search, setSearch] = useState("")
@@ -392,13 +398,18 @@ export default function MenuPage() {
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Menu Items</h1>
-              <Badge variant="secondary" className="rounded-full text-xs font-semibold px-2.5">
-                {filteredItems.length} {filteredItems.length === 1 ? "item" : "items"}
-              </Badge>
+              {isLoading ? (
+                <Skeleton className="h-5 w-14 rounded-full" />
+              ) : (
+                <Badge variant="secondary" className="rounded-full text-xs font-semibold px-2.5">
+                  {filteredItems.length} {filteredItems.length === 1 ? "item" : "items"}
+                </Badge>
+              )}
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground truncate">
               Manage categories, pricing, stock, and availability.
             </p>
+
           </div>
 
           {/* Sheet for Item Creation / Editing */}
@@ -493,11 +504,17 @@ export default function MenuPage() {
 
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold">Categories</Label>
-                    {categories.length === 0 ? (
+                    {isLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-14 w-full rounded-lg" />
+                        <Skeleton className="h-14 w-full rounded-lg" />
+                      </div>
+                    ) : categories.length === 0 ? (
                       <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
                         No categories yet.
                       </p>
                     ) : (
+
                       categories.map((category) => (
                         <div
                           key={category.id}
@@ -768,13 +785,22 @@ export default function MenuPage() {
                 <TabsTrigger value="all" className="px-3.5 py-1.5 text-xs font-medium min-w-[60px]">
                   All Items
                 </TabsTrigger>
-                {categories.map((cat) => (
-                  <TabsTrigger key={cat.id} value={cat.id} className="px-3.5 py-1.5 text-xs font-medium">
-                    {cat.name}
-                  </TabsTrigger>
-                ))}
+                {isLoading ? (
+                  <>
+                    <Skeleton className="h-7 w-20 rounded-md mx-1" />
+                    <Skeleton className="h-7 w-24 rounded-md mx-1" />
+                    <Skeleton className="h-7 w-16 rounded-md mx-1" />
+                  </>
+                ) : (
+                  categories.map((cat) => (
+                    <TabsTrigger key={cat.id} value={cat.id} className="px-3.5 py-1.5 text-xs font-medium">
+                      {cat.name}
+                    </TabsTrigger>
+                  ))
+                )}
               </TabsList>
             </Tabs>
+
           </div>
 
           <div className="relative w-full sm:w-64 shrink-0">
@@ -799,132 +825,176 @@ export default function MenuPage() {
 
         {/* ── Mobile-First Cards Grid ───────────────────────────────── */}
         <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full min-w-0">
-          {filteredItems.map((item) => (
-            <Card
-              key={item.id}
-              className="flex flex-row sm:flex-col p-3 sm:p-0 gap-3 sm:gap-0 overflow-hidden transition-shadow hover:shadow-md border bg-card w-full min-w-0"
-            >
-              {/* Thumbnail Image: Square 80x80 on mobile, Aspect ratio on desktop */}
-              <div className="relative w-20 h-20 shrink-0 sm:w-full sm:h-44 bg-muted rounded-lg sm:rounded-none overflow-hidden">
-                {item.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.imageUrl}
-                    alt={item.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-                    <ImageOff className="h-6 w-6 sm:h-9 sm:w-9" />
-                  </div>
-                )}
+          {isLoading ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <Card
+                key={`menu-item-skeleton-${i}`}
+                className="flex flex-row sm:flex-col p-3 sm:p-0 gap-3 sm:gap-0 overflow-hidden border bg-card w-full min-w-0"
+              >
+                {/* Thumbnail Image Skeleton */}
+                <Skeleton className="w-20 h-20 shrink-0 sm:w-full sm:h-44 rounded-lg sm:rounded-none" />
 
-                {!item.isAvailable && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-[1px]">
-                    <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 py-0.5 font-medium">
-                      Hidden
-                    </Badge>
-                  </div>
-                )}
-              </div>
+                {/* Card Body & Actions Skeleton */}
+                <div className="flex flex-1 min-w-0 flex-col justify-between sm:p-4">
+                  <div className="p-0 space-y-2 min-w-0">
+                    {/* Title + Price Row Skeleton */}
+                    <div className="flex items-baseline justify-between gap-2 min-w-0">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-4 w-12" />
+                    </div>
 
-              {/* Card Body & Actions */}
-              <div className="flex flex-1 min-w-0 flex-col justify-between sm:p-4">
-                <CardContent className="p-0 space-y-1 sm:space-y-2 min-w-0">
-                  {/* Title + Price Row */}
-                  <div className="flex items-baseline justify-between gap-2 min-w-0">
-                    <h3 className="text-sm font-semibold leading-tight text-foreground truncate">
-                      {item.name}
-                    </h3>
-                    <span className="shrink-0 text-sm font-bold text-amber-500">
-                      ₱{item.price.toFixed(2)}
-                    </span>
+                    {/* Description Skeleton */}
+                    <Skeleton className="h-3 w-4/5" />
+
+                    {/* Category + Stock Skeleton */}
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <Skeleton className="h-4 w-16 rounded-md" />
+                      <Skeleton className="h-3 w-14" />
+                    </div>
                   </div>
 
-                  {item.description && (
-                    <p className="line-clamp-1 sm:line-clamp-2 text-xs text-muted-foreground leading-normal">
-                      {item.description}
-                    </p>
+                  {/* Footer Controls Skeleton */}
+                  <div className="p-0 pt-2 sm:pt-3 mt-2 border-t flex items-center justify-between gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <Skeleton className="h-5 w-9 sm:h-6 sm:w-11 rounded-full" />
+                      <Skeleton className="h-3 w-8" />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Skeleton className="size-8 rounded-md" />
+                      <Skeleton className="size-8 rounded-md" />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))
+          ) : (
+            filteredItems.map((item) => (
+              <Card
+                key={item.id}
+                className="flex flex-row sm:flex-col p-3 sm:p-0 gap-3 sm:gap-0 overflow-hidden transition-shadow hover:shadow-md border bg-card w-full min-w-0"
+              >
+                {/* Thumbnail Image: Square 80x80 on mobile, Aspect ratio on desktop */}
+                <div className="relative w-20 h-20 shrink-0 sm:w-full sm:h-44 bg-muted rounded-lg sm:rounded-none overflow-hidden">
+                  {item.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+                      <ImageOff className="h-6 w-6 sm:h-9 sm:w-9" />
+                    </div>
                   )}
 
-                  <div className="flex items-center justify-between gap-2 pt-0.5 sm:pt-1">
-                    <Badge variant="outline" className="text-[10px] sm:text-xs font-normal shrink-0">
-                      {categoryName(item.categoryId)}
-                    </Badge>
-                    <span className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground shrink-0">
-                      <Package className="h-3 w-3" />
-                      {item.stockQuantity === null
-                        ? "Unlimited"
-                        : `${item.stockQuantity} left`}
-                    </span>
-                  </div>
-                </CardContent>
+                  {!item.isAvailable && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-[1px]">
+                      <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 py-0.5 font-medium">
+                        Hidden
+                      </Badge>
+                    </div>
+                  )}
+                </div>
 
-                {/* Footer Controls: Switch on Left, Edit & Delete on Right */}
-                <CardFooter className="p-0 pt-2 sm:pt-3 mt-2 border-t flex items-center justify-between gap-2 shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <Switch
-                      checked={item.isAvailable}
-                      onCheckedChange={() => toggleAvailability(item.id)}
-                      className="h-5 w-9 sm:h-6 sm:w-11"
-                    />
-                    <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">
-                      {item.isAvailable ? "Live" : "Hidden"}
-                    </span>
-                  </div>
+                {/* Card Body & Actions */}
+                <div className="flex flex-1 min-w-0 flex-col justify-between sm:p-4">
+                  <CardContent className="p-0 space-y-1 sm:space-y-2 min-w-0">
+                    {/* Title + Price Row */}
+                    <div className="flex items-baseline justify-between gap-2 min-w-0">
+                      <h3 className="text-sm font-semibold leading-tight text-foreground truncate">
+                        {item.name}
+                      </h3>
+                      <span className="shrink-0 text-sm font-bold text-amber-500">
+                        ₱{item.price.toFixed(2)}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center gap-0.5">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
-                      onClick={() => openEditSheet(item)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      <span className="sr-only">Edit item</span>
-                    </Button>
+                    {item.description && (
+                      <p className="line-clamp-1 sm:line-clamp-2 text-xs text-muted-foreground leading-normal">
+                        {item.description}
+                      </p>
+                    )}
 
-                    <AlertDialog>
-                      <AlertDialogTrigger
-                        render={
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span className="sr-only">Delete item</span>
-                          </Button>
-                        }
+                    <div className="flex items-center justify-between gap-2 pt-0.5 sm:pt-1">
+                      <Badge variant="outline" className="text-[10px] sm:text-xs font-normal shrink-0">
+                        {categoryName(item.categoryId)}
+                      </Badge>
+                      <span className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground shrink-0">
+                        <Package className="h-3 w-3" />
+                        {item.stockQuantity === null
+                          ? "Unlimited"
+                          : `${item.stockQuantity} left`}
+                      </span>
+                    </div>
+                  </CardContent>
+
+                  {/* Footer Controls: Switch on Left, Edit & Delete on Right */}
+                  <CardFooter className="p-0 pt-2 sm:pt-3 mt-2 border-t flex items-center justify-between gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <Switch
+                        checked={item.isAvailable}
+                        onCheckedChange={() => toggleAvailability(item.id)}
+                        className="h-5 w-9 sm:h-6 sm:w-11"
                       />
-                      <AlertDialogContent className="w-[90vw] max-w-md rounded-xl sm:rounded-lg">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete this item?</AlertDialogTitle>
-                          <AlertDialogDescription className="text-xs sm:text-sm">
-                            "{item.name}" will be permanently removed from the
-                            menu. Past orders won't be affected.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2">
-                          <AlertDialogCancel className="w-full sm:w-auto mt-0">
-                            Cancel
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(item.id, item.name)}
-                            className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </CardFooter>
-              </div>
-            </Card>
-          ))}
+                      <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">
+                        {item.isAvailable ? "Live" : "Hidden"}
+                      </span>
+                    </div>
 
-          {filteredItems.length === 0 && (
+                    <div className="flex items-center gap-0.5">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
+                        onClick={() => openEditSheet(item)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        <span className="sr-only">Edit item</span>
+                      </Button>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger
+                          render={
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="sr-only">Delete item</span>
+                            </Button>
+                          }
+                        />
+                        <AlertDialogContent className="w-[90vw] max-w-md rounded-xl sm:rounded-lg">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this item?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-xs sm:text-sm">
+                              "{item.name}" will be permanently removed from the
+                              menu. Past orders won't be affected.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2">
+                            <AlertDialogCancel className="w-full sm:w-auto mt-0">
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(item.id, item.name)}
+                              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </CardFooter>
+                </div>
+              </Card>
+            ))
+          )}
+
+          {!isLoading && filteredItems.length === 0 && (
             <div className="col-span-full flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-8 text-center text-muted-foreground bg-muted/20">
               <Package className="h-10 w-10 opacity-40" />
               <div>
@@ -948,6 +1018,7 @@ export default function MenuPage() {
             </div>
           )}
         </div>
+
       </div>
     </div>
   )

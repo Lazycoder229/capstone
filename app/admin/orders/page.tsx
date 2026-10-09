@@ -63,6 +63,23 @@ type OrderItem = {
   notes?: string | null
 }
 
+type AppliedDiscount = {
+  id: string
+  discountTypeId: string
+  name: string
+  percentage: number
+  amount: number
+  holderName: string | null
+  idNumber: string | null
+}
+
+type AppliedPromotion = {
+  id: string
+  promotionId: string
+  name: string
+  amount: number
+}
+
 type Order = {
   id: string
   orderNumber: string
@@ -79,6 +96,8 @@ type Order = {
   tax: number
   total: number
   createdByStaffId: string | null
+  appliedDiscount?: AppliedDiscount | null
+  appliedPromotion?: AppliedPromotion | null
   items: OrderItem[]
 }
 
@@ -116,6 +135,21 @@ type DiscountTypeData = {
   percentage: number
   requiresIdVerification: boolean
   isActive: boolean
+}
+
+type PromotionData = {
+  id: string
+  name: string
+  description: string | null
+  promoType: "percentage" | "fixed_amount" | "buy_x_get_y"
+  discountValue: number | null
+  minSpend: number | null
+  startDate: string | null
+  endDate: string | null
+  isActive: boolean
+  usageLimit: number | null
+  usageCount: number
+  menuItemIds: string[]
 }
 
 const emptyForm: OrderForm = {
@@ -181,35 +215,36 @@ const tabs = [
   { value: "voided", label: "Voided / cancelled" },
 ]
 
-function formatCurrency(value: number) {
-  return `₱${value.toLocaleString("en-PH")}`
+function formatCurrency(value: number, symbol: string = "₱") {
+  return `${symbol}${Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-// Mirrors the VAT logic in createOrderAction (lib/database, orders.ts server action)
-// so the on-screen preview matches exactly what gets persisted:
-//  - vatInclusive: VAT already lives inside the discounted subtotal — extracted for
-//    display only, never added again.
-//  - vatExclusive: VAT is computed on top of the discounted subtotal and added.
+// Mirrors the VAT & service charge logic in createOrderAction (orders.ts server action)
+// so the on-screen preview matches exactly what gets persisted from SystemSettingEntity:
 function computeTotals(
   subtotal: number,
   discountAmount: number,
-  store: Pick<DigitalReceiptStoreInfo, "vatEnabled" | "vatRate" | "vatInclusive">,
+  store: Pick<DigitalReceiptStoreInfo, "vatEnabled" | "vatRate" | "vatInclusive" | "serviceChargeEnabled" | "serviceChargeRate">,
 ) {
-  const netAfterDiscount = subtotal - discountAmount
+  const netAfterDiscount = Math.max(0, subtotal - discountAmount)
+  let serviceCharge = 0
+  if (store.serviceChargeEnabled && store.serviceChargeRate > 0) {
+    serviceCharge = Number((netAfterDiscount * (store.serviceChargeRate / 100)).toFixed(2))
+  }
   let tax = 0
-  let total = netAfterDiscount
+  let total = netAfterDiscount + serviceCharge
 
   if (store.vatEnabled) {
     if (store.vatInclusive) {
       tax = Number((netAfterDiscount * (store.vatRate / (100 + store.vatRate))).toFixed(2))
-      total = netAfterDiscount
+      total = netAfterDiscount + serviceCharge
     } else {
       tax = Number((netAfterDiscount * (store.vatRate / 100)).toFixed(2))
-      total = netAfterDiscount + tax
+      total = netAfterDiscount + serviceCharge + tax
     }
   }
 
-  return { tax, total }
+  return { tax, serviceCharge, total }
 }
 
 export default function OrdersPage() {
@@ -221,6 +256,7 @@ export default function OrdersPage() {
   const [categoriesData, setCategoriesData] = useState<CategoryData[]>([])
   const [tablesData, setTablesData] = useState<TableData[]>([])
   const [discountTypesData, setDiscountTypesData] = useState<DiscountTypeData[]>([])
+  const [promotionsData, setPromotionsData] = useState<PromotionData[]>([])
   const [storeInfo, setStoreInfo] = useState<DigitalReceiptStoreInfo>(DEFAULT_STORE_INFO)
   const [loading, setLoading] = useState(true)
 
@@ -241,11 +277,11 @@ export default function OrdersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const pageSize = 6
 
-  // Discount selection for the order being built/edited — always resolved against
-  // an active DiscountTypeEntity server-side; this is never sent as a raw amount.
+  // Discount and Promotion selection for the order being built/edited
   const [selectedDiscountTypeId, setSelectedDiscountTypeId] = useState<string | null>(null)
   const [discountIdNumber, setDiscountIdNumber] = useState("")
   const [discountHolderName, setDiscountHolderName] = useState("")
+  const [selectedPromotionId, setSelectedPromotionId] = useState<string | null>(null)
 
   // Digital receipt sheet (used both for "View digital receipt" and right after a successful payment)
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null)
@@ -288,6 +324,16 @@ export default function OrdersPage() {
           (d) => d.isActive,
         )
         setDiscountTypesData(activeDiscounts)
+
+        const todayStr = new Date().toISOString().split("T")[0]
+        const activePromos = ((discountsRes.data.promotions || []) as PromotionData[]).filter((p) => {
+          if (!p.isActive) return false
+          if (p.startDate && p.startDate > todayStr) return false
+          if (p.endDate && p.endDate < todayStr) return false
+          if (p.usageLimit != null && p.usageCount >= p.usageLimit) return false
+          return true
+        })
+        setPromotionsData(activePromos)
       }
       if (settingsRes.success && settingsRes.data) {
         const d = settingsRes.data as Record<string, unknown>
@@ -344,6 +390,11 @@ export default function OrdersPage() {
   const selectedDiscountType = useMemo(
     () => discountTypesData.find((d) => d.id === selectedDiscountTypeId) ?? null,
     [discountTypesData, selectedDiscountTypeId],
+  )
+
+  const selectedPromotion = useMemo(
+    () => promotionsData.find((p) => p.id === selectedPromotionId) ?? null,
+    [promotionsData, selectedPromotionId],
   )
 
   // ---------------------------------------------------------------------------
@@ -440,6 +491,7 @@ export default function OrdersPage() {
     setSelectedDiscountTypeId(null)
     setDiscountIdNumber("")
     setDiscountHolderName("")
+    setSelectedPromotionId(null)
     setSheetOpen(true)
   }
 
@@ -448,26 +500,66 @@ export default function OrdersPage() {
     setForm({ ...order, orderNumber: order.orderNumber, table: order.table })
     setActiveCategory("all")
     setMenuSearch("")
-    // Editing only changes status/items locally today (no discount-update action exists
-    // yet), so we don't try to reverse-map the order's stored discount back to a type here.
     setSelectedDiscountTypeId(null)
     setDiscountIdNumber("")
     setDiscountHolderName("")
+    setSelectedPromotionId(null)
     setSheetOpen(true)
   }
 
-  // Recomputes discount + tax + total from a subtotal and the currently selected
-  // discount type, using the same formula as the server so the preview never lies.
-  function recomputeForm(subtotal: number, items: OrderForm["items"], discountTypeId: string | null) {
+  // Calculates breakdown for both discount types (Senior/PWD, etc.) and active promotions
+  function calculateDiscounts(
+    subtotal: number,
+    items: OrderForm["items"],
+    discountTypeId: string | null,
+    promoId: string | null,
+  ) {
     const discountType = discountTypesData.find((d) => d.id === discountTypeId) ?? null
-    const discountAmount = discountType ? Number((subtotal * (discountType.percentage / 100)).toFixed(2)) : 0
-    const { tax, total } = computeTotals(subtotal, discountAmount, storeInfo)
-    setForm((current) => ({ ...current, items, subtotal, discount: discountAmount, tax, total }))
+    const typeDiscountAmount = discountType ? Number((subtotal * (discountType.percentage / 100)).toFixed(2)) : 0
+
+    const promo = promotionsData.find((p) => p.id === promoId) ?? null
+    let promoDiscountAmount = 0
+
+    if (promo) {
+      const minSpend = Number(promo.minSpend || 0)
+      if (subtotal >= minSpend) {
+        let eligibleSubtotal = subtotal
+        if (promo.menuItemIds && promo.menuItemIds.length > 0) {
+          const eligibleSet = new Set(promo.menuItemIds)
+          eligibleSubtotal = items
+            .filter((it) => it.menuItemId && eligibleSet.has(it.menuItemId))
+            .reduce((sum, it) => sum + it.quantity * it.price, 0)
+        }
+
+        if (eligibleSubtotal > 0) {
+          if (promo.promoType === "percentage") {
+            promoDiscountAmount = Number(((eligibleSubtotal * (promo.discountValue || 0)) / 100).toFixed(2))
+          } else {
+            promoDiscountAmount = Math.min(eligibleSubtotal, Number(promo.discountValue || 0))
+          }
+        }
+      }
+    }
+
+    const totalDiscount = Math.min(subtotal, typeDiscountAmount + promoDiscountAmount)
+    return { typeDiscountAmount, promoDiscountAmount, totalDiscount }
+  }
+
+  // Recomputes discount + tax + total from a subtotal, discount type, and promo
+  function recomputeForm(
+    subtotal: number,
+    items: OrderForm["items"],
+    discountTypeId: string | null,
+    promoId: string | null,
+  ) {
+    const { totalDiscount } = calculateDiscounts(subtotal, items, discountTypeId, promoId)
+    const { tax, total } = computeTotals(subtotal, totalDiscount, storeInfo)
+    setForm((current) => ({ ...current, items, subtotal, discount: totalDiscount, tax, total }))
   }
 
   function updateFormItems(items: OrderForm["items"]) {
     const subtotal = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
-    recomputeForm(subtotal, items, selectedDiscountTypeId)
+    recomputeForm(subtotal, items, selectedDiscountTypeId, selectedPromotionId)
   }
 
   function selectDiscountType(value: string) {
@@ -477,7 +569,13 @@ export default function OrdersPage() {
       setDiscountIdNumber("")
       setDiscountHolderName("")
     }
-    recomputeForm(form.subtotal, form.items, discountTypeId)
+    recomputeForm(form.subtotal, form.items, discountTypeId, selectedPromotionId)
+  }
+
+  function selectPromotion(value: string) {
+    const promoId = value === "none" ? null : value
+    setSelectedPromotionId(promoId)
+    recomputeForm(form.subtotal, form.items, selectedDiscountTypeId, promoId)
   }
 
   function addMenuItem(menuItemId: string | null) {
@@ -593,8 +691,7 @@ export default function OrdersPage() {
         toast.success("Order updated", { id: toastId, description: `${updatedOrder.orderNumber} was saved.` })
       } else {
         // Create new order via server action — discount is resolved server-side from
-        // discountTypeId against DiscountTypeEntity, and VAT from SystemSettingEntity.
-        // We never send a raw discount/tax amount.
+        // discountTypeId and promotionId against entities, and VAT from SystemSettingEntity.
         const res = await createOrderAction({
           tableId: form.tableId || null,
           customerId: form.customerId || null,
@@ -602,6 +699,7 @@ export default function OrdersPage() {
           discountTypeId: selectedDiscountTypeId,
           discountIdNumber: discountIdNumber || undefined,
           discountHolderName: discountHolderName || undefined,
+          promotionId: selectedPromotionId,
           createdByStaffId: form.createdByStaffId || null,
           items: form.items.map((item) => ({
             menuItemId: item.menuItemId,
@@ -722,7 +820,20 @@ export default function OrdersPage() {
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400"><Utensils className="size-5" /></div>
                       <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{order.orderNumber}</p><Badge variant="outline" className="text-[10px]">{order.source}</Badge></div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold">{order.orderNumber}</p>
+                          <Badge variant="outline" className="text-[10px]">{order.source}</Badge>
+                          {order.appliedDiscount && (
+                            <Badge variant="secondary" className="border border-amber-200 bg-amber-50 text-[10px] text-amber-700">
+                              {order.appliedDiscount.name} (-{formatCurrency(order.appliedDiscount.amount)})
+                            </Badge>
+                          )}
+                          {order.appliedPromotion && (
+                            <Badge variant="secondary" className="border border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700">
+                              {order.appliedPromotion.name} (-{formatCurrency(order.appliedPromotion.amount)})
+                            </Badge>
+                          )}
+                        </div>
                         <p className="truncate text-xs text-muted-foreground">{order.table} · {order.customer} · {order.time}</p>
                       </div>
                     </div>
@@ -977,10 +1088,9 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Discount — picked from an active DiscountTypeEntity, amount is always
-                    auto-computed (subtotal × percentage), never hand-typed. */}
+                {/* Discount Type */}
                 <div className="grid gap-1.5">
-                  <Label>Discount</Label>
+                  <Label>Discount Type</Label>
                   <Select value={selectedDiscountTypeId ?? "none"} onValueChange={selectDiscountType}>
                     <SelectTrigger className="w-full min-w-0">
                       <SelectValue>
@@ -1027,9 +1137,63 @@ export default function OrdersPage() {
                   </div>
                 )}
 
+                {/* Promotion / Special Offer */}
+                <div className="grid gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label>Promotion / Deal</Label>
+                    {selectedPromotion && (
+                      <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700">
+                        Active deal
+                      </Badge>
+                    )}
+                  </div>
+                  <Select value={selectedPromotionId ?? "none"} onValueChange={selectPromotion}>
+                    <SelectTrigger className="w-full min-w-0">
+                      <SelectValue>
+                        {(val) => {
+                          if (val === "none" || !val) return "No promotion"
+                          const p = promotionsData.find((item) => item.id === val)
+                          if (!p) return "Promotion"
+                          const detail =
+                            p.promoType === "percentage"
+                              ? `${p.discountValue}% off`
+                              : `₱${p.discountValue} off`
+                          return `${p.name} (${detail})`
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No promotion</SelectItem>
+                      {promotionsData.map((promo) => {
+                        const detail =
+                          promo.promoType === "percentage"
+                            ? `${promo.discountValue}% off`
+                            : `₱${promo.discountValue} off`
+                        const minSpendNotice = promo.minSpend ? ` · min. ₱${promo.minSpend}` : ""
+                        return (
+                          <SelectItem key={promo.id} value={promo.id}>
+                            {promo.name} ({detail}{minSpendNotice})
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {selectedPromotion && selectedPromotion.minSpend != null && form.subtotal < selectedPromotion.minSpend && (
+                    <p className="text-[11px] font-medium text-amber-600">
+                      Minimum spend of ₱{selectedPromotion.minSpend} required. Add ₱
+                      {(selectedPromotion.minSpend - form.subtotal).toFixed(2)} more to qualify.
+                    </p>
+                  )}
+                </div>
+
                 <div className="rounded-xl bg-muted/50 p-4">
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Sub Total</span><span>{formatCurrency(form.subtotal)}</span></div>
-                  <div className="mt-2 flex justify-between text-sm"><span className="text-muted-foreground">Discount</span><span>-{formatCurrency(form.discount)}</span></div>
+                  {form.discount > 0 && (
+                    <div className="mt-2 flex justify-between text-sm font-medium text-emerald-700">
+                      <span>Discount & Promos</span>
+                      <span>-{formatCurrency(form.discount)}</span>
+                    </div>
+                  )}
                   <div className="mt-2 flex justify-between text-sm">
                     <span className="text-muted-foreground">
                       {storeInfo.vatEnabled ? `VAT (${storeInfo.vatRate}%)${storeInfo.vatInclusive ? " incl." : ""}` : "Tax"}
@@ -1059,7 +1223,64 @@ export default function OrdersPage() {
               <div className="flex items-start justify-between gap-4 pr-8"><div><SheetTitle>{selectedOrder.orderNumber}</SheetTitle><SheetDescription>{selectedOrder.table} · {selectedOrder.source} · {selectedOrder.time}</SheetDescription></div><Badge variant="outline" className={statusClasses[selectedOrder.status]}>{statusLabels[selectedOrder.status]}</Badge></div>
             </SheetHeader>
             <div className="flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
-              <div><p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order items</p><div className="space-y-3">{selectedOrder.items.map((item, idx) => <div key={`${item.name}-${idx}`} className="flex justify-between gap-3 text-sm"><span>{item.quantity} × {item.name}</span><span className="font-medium">{formatCurrency(item.quantity * item.price)}</span></div>)}</div><div className="mt-4 flex justify-between border-t pt-4 font-bold"><span>Total</span><span>{formatCurrency(selectedOrder.total)}</span></div></div>
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order items</p>
+                <div className="space-y-3">
+                  {selectedOrder.items.map((item, idx) => (
+                    <div key={`${item.name}-${idx}`} className="flex justify-between gap-3 text-sm">
+                      <span>{item.quantity} × {item.name}</span>
+                      <span className="font-medium">{formatCurrency(item.quantity * item.price)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 space-y-1.5 border-t pt-4 text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(selectedOrder.subtotal)}</span>
+                  </div>
+                  {selectedOrder.appliedDiscount && (
+                    <div className="flex justify-between font-medium text-amber-700">
+                      <span>Discount ({selectedOrder.appliedDiscount.name}{selectedOrder.appliedDiscount.percentage ? ` ${selectedOrder.appliedDiscount.percentage}%` : ""})</span>
+                      <span>-{formatCurrency(selectedOrder.appliedDiscount.amount)}</span>
+                    </div>
+                  )}
+                  {selectedOrder.appliedPromotion && (
+                    <div className="flex justify-between font-medium text-emerald-700">
+                      <span>Promo ({selectedOrder.appliedPromotion.name})</span>
+                      <span>-{formatCurrency(selectedOrder.appliedPromotion.amount)}</span>
+                    </div>
+                  )}
+                  {selectedOrder.tax > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Tax</span>
+                      <span>{formatCurrency(selectedOrder.tax)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t pt-2 text-base font-bold">
+                    <span>Total</span>
+                    <span>{formatCurrency(selectedOrder.total)}</span>
+                  </div>
+                </div>
+              </div>
+              {selectedOrder.appliedDiscount && (
+                <div className="rounded-lg border border-amber-200/50 bg-amber-50/50 p-3 text-xs space-y-1">
+                  <p className="font-semibold text-amber-800">Applied Discount Details</p>
+                  <p className="text-muted-foreground"><span className="font-medium text-foreground">Type:</span> {selectedOrder.appliedDiscount.name}</p>
+                  {selectedOrder.appliedDiscount.holderName && (
+                    <p className="text-muted-foreground"><span className="font-medium text-foreground">Holder:</span> {selectedOrder.appliedDiscount.holderName}</p>
+                  )}
+                  {selectedOrder.appliedDiscount.idNumber && (
+                    <p className="text-muted-foreground"><span className="font-medium text-foreground">ID Number:</span> {selectedOrder.appliedDiscount.idNumber}</p>
+                  )}
+                </div>
+              )}
+              {selectedOrder.appliedPromotion && (
+                <div className="rounded-lg border border-emerald-200/50 bg-emerald-50/50 p-3 text-xs space-y-1">
+                  <p className="font-semibold text-emerald-800">Applied Promotion</p>
+                  <p className="text-muted-foreground"><span className="font-medium text-foreground">Campaign:</span> {selectedOrder.appliedPromotion.name}</p>
+                  <p className="text-muted-foreground"><span className="font-medium text-foreground">Savings:</span> {formatCurrency(selectedOrder.appliedPromotion.amount)}</p>
+                </div>
+              )}
               <div className="rounded-lg border bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Customer</p><p className="mt-1 font-medium">{selectedOrder.customer}</p></div>
             </div>
             <SheetFooter className="border-t bg-background p-4 sm:p-6">
