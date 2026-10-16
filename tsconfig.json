@@ -7,6 +7,8 @@
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
@@ -21,6 +23,9 @@
     "paths": {
       "@/*": ["./*"]
     }
+  },
+  "ts-node": {
+    "experimentalSpecifierResolution": "node"
   },
   "include": [
     "next-env.d.ts",
