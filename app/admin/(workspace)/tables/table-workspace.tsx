@@ -211,35 +211,15 @@ export function TableWorkspace({ tables }: { tables: TableRow[] }) {
                         ? "Set available"
                         : "Reserve"}
                     </Button>
-                    {table.qrCodeUrl?.startsWith("/uploads/qr/") &&
-                    table.qrCodeUrl.toLowerCase().endsWith(".png") ? (
-                      <>
-                        <a
-                          href={table.qrCodeUrl}
-                          download={`table-${table.tableNumber}-qr.png`}
-                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border bg-background px-2.5 text-xs font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
-                        >
-                          <Download className="size-3.5" />
-                          Download PNG
-                        </a>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          title="Regenerate this QR using the current app address"
-                          onClick={() => {
-                            const data = new FormData()
-                            data.set("id", table.id)
-                            data.set("tableNumber", table.tableNumber)
-                            data.set("capacity", String(table.capacity))
-                            data.set("regenerateQr", "true")
-                            run(saveRestaurantTable, data)
-                          }}
-                          disabled={busy}
-                        >
-                          <QrCode className="size-3.5" />
-                          Refresh QR
-                        </Button>
-                      </>
+                    {table.qrCodeUrl === `/api/tables/${table.id}/qr` ? (
+                      <a
+                        href={table.qrCodeUrl}
+                        download={`table-${table.tableNumber}-qr.png`}
+                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border bg-background px-2.5 text-xs font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Download className="size-3.5" />
+                        Download PNG
+                      </a>
                     ) : (
                       <Button
                         size="sm"

@@ -1,12 +1,8 @@
 "use server"
 
 import { randomUUID } from "node:crypto"
-import { mkdir, unlink } from "node:fs/promises"
-import path from "node:path"
 import { revalidatePath } from "next/cache"
-import { headers } from "next/headers"
 import { In } from "typeorm"
-import QRCode from "qrcode"
 import { z } from "zod"
 import { getInitializedDataSource } from "@/lib/database/data-source"
 import { Order } from "@/lib/database/entities/entities/Order"
@@ -15,37 +11,6 @@ import { RestaurantTable } from "@/lib/database/entities/entities/RestaurantTabl
 import { restaurantTableSchema } from "@/lib/validations/tables"
 
 const activeStatuses = ["pending", "preparing", "ready", "served"] as const
-
-async function generateTableQr(tableId: string) {
-  const requestHeaders = await headers()
-  const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(
-    /\/$/,
-    ""
-  )
-  const host =
-    requestHeaders.get("x-forwarded-host") ??
-    requestHeaders.get("host") ??
-    "localhost:3000"
-  const protocol =
-    requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim() === "https"
-      ? "https"
-      : "http"
-  const baseUrl = configuredOrigin || `${protocol}://${host}`
-  const tableUrl = new URL("/customer/kiosk", baseUrl)
-  tableUrl.searchParams.set("tableId", tableId)
-
-  const directory = path.join(process.cwd(), "public", "uploads", "qr")
-  const filename = `${tableId}.png`
-  const absolutePath = path.join(directory, filename)
-  await mkdir(directory, { recursive: true })
-  await QRCode.toFile(absolutePath, tableUrl.toString(), {
-    type: "png",
-    width: 800,
-    margin: 2,
-    errorCorrectionLevel: "M",
-  })
-  return { url: `/uploads/qr/${filename}`, absolutePath }
-}
 
 export async function saveRestaurantTable(data: FormData) {
   const parsed = restaurantTableSchema.safeParse({
@@ -58,9 +23,6 @@ export async function saveRestaurantTable(data: FormData) {
       ok: false,
       message: "Enter a table number and valid seat capacity.",
     }
-  let generatedQrPath: string | null = null
-  let replacedQrPath: string | null = null
-  const regenerateQr = data.get("regenerateQr") === "true"
   try {
     const source = await getInitializedDataSource()
     await source.transaction(async (manager) => {
@@ -75,35 +37,16 @@ export async function saveRestaurantTable(data: FormData) {
       if (!table) throw new Error("Table not found. Refresh and try again.")
       table.tableNumber = parsed.data.tableNumber
       table.capacity = parsed.data.capacity
-      if (
-        regenerateQr ||
-        !table.qrCodeUrl?.startsWith("/uploads/qr/") ||
-        !table.qrCodeUrl.toLowerCase().endsWith(".png")
-      ) {
-        if (
-          table.qrCodeUrl?.startsWith("/uploads/qr/") &&
-          table.qrCodeUrl.toLowerCase().endsWith(".svg")
-        ) {
-          replacedQrPath = path.join(
-            process.cwd(),
-            "public",
-            table.qrCodeUrl.slice(1)
-          )
-        }
-        const generatedQr = await generateTableQr(table.id)
-        table.qrCodeUrl = generatedQr.url
-        generatedQrPath = generatedQr.absolutePath
-      }
+      // Store a stable route instead of writing into /public. Serverless
+      // deployments such as Vercel have a read-only app filesystem.
+      table.qrCodeUrl = `/api/tables/${table.id}/qr`
       await repo.save(table)
     })
-    if (replacedQrPath) await unlink(replacedQrPath).catch(() => undefined)
     revalidatePath("/admin/tables")
     revalidatePath("/admin/orders")
     return { ok: true, message: "Table saved." }
   } catch (error) {
     console.error("Unable to save table:", error)
-    if (generatedQrPath && !regenerateQr)
-      await unlink(generatedQrPath).catch(() => undefined)
     if (
       error instanceof Error &&
       error.message === "Table not found. Refresh and try again."
