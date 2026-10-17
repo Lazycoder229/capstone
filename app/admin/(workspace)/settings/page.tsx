@@ -209,7 +209,7 @@ export default async function SettingsPage() {
             System Settings
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            I-manage ang restaurant, tax, order, at receipt preferences.
+            Manage restaurant, tax, order, and receipt preferences.
           </p>
         </div>
       </div>
@@ -218,8 +218,8 @@ export default async function SettingsPage() {
         <Card className="border-amber-500/40 bg-amber-500/5">
           <CardContent className="pt-6 text-sm">
             {configMissing
-              ? "Wala pang database configuration. Idagdag ang DB_HOST, DB_USERNAME, DB_PASSWORD, at DB_DATABASE sa .env.local (optional ang DB_PORT), pagkatapos ay i-restart ang dev server."
-              : "Hindi ma-access ang database. Ipinapakita ang default values; suriin ang credentials, network connection, at kung nailapat na ang migrations bago mag-save."}
+              ? "Database configuration is missing. Add DB_HOST, DB_USERNAME, DB_PASSWORD, and DB_DATABASE to .env.local (DB_PORT is optional), then restart the development server."
+              : "The database is unavailable. Default values are shown. Check the credentials, network connection, and whether migrations have been applied before saving."}
           </CardContent>
         </Card>
       )}
@@ -228,8 +228,8 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>Restaurant configuration</CardTitle>
           <CardDescription>
-            Naka-save ang mga value na ito sa system settings at ginagamit ng
-            POS sa buong app.
+            These values are saved in system settings and used throughout the
+            POS.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -98,7 +98,7 @@ export async function saveSystemSettings(
         (issue) => issue.message === "Enable at least one payment method."
       )
         ? "Enable at least one payment method."
-        : "Pakisuri ang mga field na may error.",
+        : "Please review the fields with errors.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<
         string,
         string[]
@@ -184,7 +184,7 @@ export async function saveSystemSettings(
 
     revalidatePath("/admin/settings")
     revalidatePath("/admin/orders")
-    return { status: "success", message: "Na-save ang system settings." }
+    return { status: "success", message: "System settings saved." }
   } catch (error) {
     console.error("Unable to save system settings:", error)
     return {
@@ -192,7 +192,7 @@ export async function saveSystemSettings(
       message:
         error instanceof Error && error.message.startsWith("The main branch")
           ? error.message
-          : "Hindi ma-save ang settings. Suriin ang database connection at subukan ulit.",
+          : "Could not save settings. Check the database connection and try again.",
     }
   }
 }

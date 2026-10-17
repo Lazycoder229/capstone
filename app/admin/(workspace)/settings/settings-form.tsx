@@ -323,16 +323,16 @@ export function SettingsForm({
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
       toast(
         "error",
-        "Hindi valid ang image",
-        "PNG, JPG, o WebP image lang ang puwede."
+        "Invalid image",
+        "Choose a PNG, JPG, or WebP image."
       )
       return
     }
     if (file.size > 300 * 1024) {
       toast(
         "error",
-        "Masyadong malaki ang QR image",
-        "Hanggang 300 KB lang ang puwede."
+        "QR image is too large",
+        "The maximum file size is 300 KB."
       )
       return
     }
@@ -347,8 +347,8 @@ export function SettingsForm({
     reader.onerror = () =>
       toast(
         "error",
-        "Hindi mabasa ang image",
-        "Pumili ng ibang file at subukan ulit."
+        "Could not read the image",
+        "Choose another file and try again."
       )
     reader.readAsDataURL(file)
   }
@@ -398,8 +398,8 @@ export function SettingsForm({
                 role="status"
                 className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300"
               >
-                Wala pang main branch. Magtakda nito sa Branches tab para doon
-                manggaling ang branch name at contact details.
+                No main branch is set. Choose one in the Branches tab to use its
+                name and contact details here.
               </p>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -754,7 +754,7 @@ export function SettingsForm({
           <Section
             compact
             title="Receipt and Wi-Fi"
-            description="Iisang digital receipt template para sa customer receipts sa buong app."
+            description="One digital receipt template is used for customer receipts throughout the app."
           >
             <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
               <div className="space-y-3">
@@ -793,8 +793,8 @@ export function SettingsForm({
                     error={errorFor("wifiPassword")}
                     hint={
                       hasWifiPassword
-                        ? "May naka-save na password. Iwanang blangko para hindi ito palitan."
-                        : "Iwanang blangko kung walang Wi-Fi password."
+                        ? "A password is saved. Leave this blank to keep it unchanged."
+                        : "Leave blank if there is no Wi-Fi password."
                     }
                   />
                   {hasWifiPassword ? (
@@ -804,7 +804,7 @@ export function SettingsForm({
                         name="removeWifiPassword"
                         className="size-4 accent-amber-600"
                       />
-                      Alisin ang naka-save na password
+                      Remove saved password
                     </label>
                   ) : null}
                 </div>
@@ -839,7 +839,7 @@ export function SettingsForm({
                     Digital receipt sample
                   </h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Buksan ang live sample sa preview.
+                    Open a live sample preview.
                   </p>
                 </div>
                 <Button
@@ -890,7 +890,7 @@ export function SettingsForm({
           </Section>
           <Section
             title="Payment QR images"
-            description="Optional GCash, Maya, and QRPH images displayed by the POS. These images do not control which payment methods are available. Hanggang 300 KB bawat image."
+            description="Optional GCash, Maya, and QRPH images displayed by the POS. These images do not control which payment methods are available. Maximum size: 300 KB per image."
           >
             <div className="grid gap-4 sm:grid-cols-2">
               {(
@@ -937,10 +937,10 @@ export function SettingsForm({
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
                       {qrImages[kind]
-                        ? "May bagong image na ise-save."
+                        ? "A new image will be saved."
                         : exists
-                          ? "May naka-save na QR image."
-                          : "Wala pang naka-save na image."}
+                          ? "A QR image is saved."
+                          : "No image saved yet."}
                     </p>
                   </div>
                   {exists ? (
@@ -950,7 +950,7 @@ export function SettingsForm({
                         name={removeName}
                         className="size-4 accent-amber-600"
                       />
-                      Alisin ang naka-save na QR image
+                      Remove saved QR image
                     </label>
                   ) : null}
                 </div>
@@ -995,7 +995,7 @@ export function SettingsForm({
                   Digital receipt sample
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Live preview ng kasalukuyang receipt at Wi-Fi settings.
+                  Live preview of the current receipt and Wi-Fi settings.
                 </p>
               </div>
               <Button

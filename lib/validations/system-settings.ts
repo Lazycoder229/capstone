@@ -8,13 +8,13 @@ const optionalText = (max: number) =>
     .transform((value) => value || null)
 const time = z
   .string()
-  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Gamitin ang oras na HH:mm.")
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter the time in HH:mm format.")
 const qrImage = z
   .string()
-  .max(420_000, "Hanggang 300 KB lang ang QR image.")
+  .max(420_000, "The QR image must be 300 KB or smaller.")
   .refine(
     (value) => !value || /^data:image\/(png|jpeg|webp);base64,/.test(value),
-    "PNG, JPG, o WebP image lang ang puwede."
+    "Only PNG, JPG, and WebP images are supported."
   )
   .transform((value) => value || null)
 

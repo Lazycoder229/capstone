@@ -72,8 +72,7 @@ export function BranchManagement({ branches }: { branches: BranchSummary[] }) {
         <div>
           <h2 className="font-semibold">Branch management</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Magdagdag at mag-update ng branches. I-deactivate ang branch para
-            mapanatili ang history nito.
+            Add or update branches. Deactivate a branch to keep its history.
           </p>
         </div>
         <Button
@@ -151,9 +150,9 @@ export function BranchManagement({ branches }: { branches: BranchSummary[] }) {
             className="mx-auto size-8 text-muted-foreground"
             aria-hidden="true"
           />
-          <p className="mt-3 font-medium">Wala pang branches</p>
+          <p className="mt-3 font-medium">No branches yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gumawa ng branch para simulan ang branch management.
+            Add a branch to begin managing locations.
           </p>
         </div>
       )}
@@ -274,7 +273,7 @@ export function BranchManagement({ branches }: { branches: BranchSummary[] }) {
                   <span>
                     <span className="block font-medium">Main branch</span>
                     <span className="text-xs text-muted-foreground">
-                      Magtatalaga ng iisang main branch.
+                      Only one branch can be designated as the main branch.
                     </span>
                   </span>
                 </label>
@@ -291,7 +290,7 @@ export function BranchManagement({ branches }: { branches: BranchSummary[] }) {
                   <span>
                     <span className="block font-medium">Active</span>
                     <span className="text-xs text-muted-foreground">
-                      Maaaring gamitin sa operations.
+                      Available for operations.
                     </span>
                   </span>
                 </label>
