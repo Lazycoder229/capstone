@@ -176,10 +176,21 @@ export function LiveOrdersBoard({
     paymentMethods[0]?.id ?? ""
   )
   const [selectedCustomerId, setSelectedCustomerId] = useState("")
+  const [optimisticStatuses, setOptimisticStatuses] = useState<
+    Record<string, OrderStatus>
+  >({})
   const { pending, moveOrder, createOrder, markPaymentReceived } = useOrders()
+  const displayOrders = useMemo(
+    () =>
+      orders.map((order) => {
+        const status = optimisticStatuses[order.id]
+        return status ? { ...order, status } : order
+      }),
+    [orders, optimisticStatuses]
+  )
   const visibleOrders = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
-    return orders.filter(
+    return displayOrders.filter(
       (order) =>
         matches(order, filter) &&
         (!query ||
@@ -191,10 +202,14 @@ export function LiveOrdersBoard({
             ...order.items.map((item) => item.name),
           ].some((value) => value?.toLowerCase().includes(query)))
     )
-  }, [orders, filter, searchQuery])
-  const activeCount = orders.filter((order) => matches(order, "active")).length
-  const newCount = orders.filter((order) => order.status === "pending").length
-  const preparingCount = orders.filter(
+  }, [displayOrders, filter, searchQuery])
+  const activeCount = displayOrders.filter((order) =>
+    matches(order, "active")
+  ).length
+  const newCount = displayOrders.filter(
+    (order) => order.status === "pending"
+  ).length
+  const preparingCount = displayOrders.filter(
     (order) => order.status === "preparing"
   ).length
   const visibleFilters =
@@ -206,6 +221,20 @@ export function LiveOrdersBoard({
     const timer = window.setInterval(() => router.refresh(), 20_000)
     return () => window.clearInterval(timer)
   }, [router])
+
+  useEffect(() => {
+    setOptimisticStatuses((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const order of orders) {
+        if (next[order.id] === order.status) {
+          delete next[order.id]
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }, [orders])
 
   useEffect(() => {
     if (!receiptToPrint) {
@@ -232,6 +261,27 @@ export function LiveOrdersBoard({
     )
   }, [customerPaymentLinkToken])
 
+  function requestStatusChange(order: LiveOrder, status: OrderStatus) {
+    const rollback = () => {
+      setOptimisticStatuses((current) => {
+        const next = { ...current }
+        delete next[order.id]
+        return next
+      })
+    }
+    void moveOrder(
+      order.id,
+      order.orderNumber,
+      status,
+      () =>
+        setOptimisticStatuses((current) => ({
+          ...current,
+          [order.id]: status,
+        })),
+      rollback
+    )
+  }
+
   function advance(order: LiveOrder) {
     const next: Partial<Record<OrderStatus, OrderStatus>> = {
       pending: "preparing",
@@ -240,7 +290,7 @@ export function LiveOrdersBoard({
       served: "completed",
     }
     const target = next[order.status]
-    if (target) void moveOrder(order.id, order.orderNumber, target)
+    if (target) requestStatusChange(order, target)
   }
 
   async function submitNewOrder(event: React.FormEvent<HTMLFormElement>) {
@@ -672,11 +722,7 @@ export function LiveOrdersBoard({
                         size="sm"
                         disabled={pending}
                         onClick={() =>
-                          void moveOrder(
-                            order.id,
-                            order.orderNumber,
-                            "cancelled"
-                          )
+                          requestStatusChange(order, "cancelled")
                         }
                       >
                         <XCircle className="mr-1 size-4" />

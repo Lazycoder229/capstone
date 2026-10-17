@@ -19,7 +19,9 @@ export function useOrders() {
   async function moveOrder(
     orderId: string,
     orderNumber: string,
-    status: OrderStatus
+    status: OrderStatus,
+    onOptimisticUpdate?: () => void,
+    onRollback?: () => void
   ) {
     if (status === "cancelled") {
       const approved = await confirm({
@@ -31,12 +33,15 @@ export function useOrders() {
       if (!approved) return
     }
 
+    onOptimisticUpdate?.()
     startTransition(async () => {
       try {
         const result = await updateOrderStatus(orderId, status)
         toast(result.ok ? "success" : "error", result.message)
         if (result.ok) router.refresh()
+        else onRollback?.()
       } catch {
+        onRollback?.()
         toast(
           "error",
           "Could not update the order",

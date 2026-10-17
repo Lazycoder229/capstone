@@ -246,6 +246,11 @@ export function InventoryWorkspace({
       const result = await action(data)
       toast(result.ok ? "success" : "error", result.message)
       if (result.ok) {
+        if (typeof BroadcastChannel !== "undefined") {
+          const channel = new BroadcastChannel("prime-device-cache")
+          channel.postMessage({ type: "catalog-invalidated" })
+          channel.close()
+        }
         setModal(null)
         router.refresh()
       }
@@ -269,6 +274,11 @@ export function InventoryWorkspace({
       const result = await action(data)
       toast(result.ok ? "success" : "error", result.message)
       if (result.ok) {
+        if (typeof BroadcastChannel !== "undefined") {
+          const channel = new BroadcastChannel("prime-device-cache")
+          channel.postMessage({ type: "catalog-invalidated" })
+          channel.close()
+        }
         clear()
         form.reset()
         router.refresh()
