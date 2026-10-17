@@ -8,7 +8,7 @@ export default async function CashierReportsPage({
 }) {
   const params = searchParams ? await searchParams : {}
   try {
-    const data = await getSalesReportData(params)
+    const data = await getSalesReportData(params, { includeForecast: true })
     return <SalesReportsWorkspace data={data} basePath="/cashier" />
   } catch (error) {
     console.error("Unable to load cashier reports:", error)

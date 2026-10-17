@@ -146,17 +146,15 @@ export function SalesReportsWorkspace({
         <DetailTab id="orders" active={activeDetail} onSelect={setActiveDetail}>
           Recent orders
         </DetailTab>
-        {basePath === "/admin" && (
-          <DetailTab
-            id="forecast"
-            active={activeDetail}
-            onSelect={setActiveDetail}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <BrainCircuit className="size-3.5" /> Forecast
-            </span>
-          </DetailTab>
-        )}
+        <DetailTab
+          id="forecast"
+          active={activeDetail}
+          onSelect={setActiveDetail}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <BrainCircuit className="size-3.5" /> Forecast
+          </span>
+        </DetailTab>
       </div>
 
       {activeDetail === "overview" && (
@@ -371,8 +369,8 @@ export function SalesReportsWorkspace({
       )}
 
       <section className="space-y-3">
-        {activeDetail === "forecast" && basePath === "/admin" && (
-          <SalesForecast history={data.forecastHistory} />
+        {activeDetail === "forecast" && (
+          <SalesForecast history={data.forecastHistory} basePath={basePath} />
         )}
         {activeDetail === "items" && (
           <Card

@@ -61,8 +61,10 @@ function addDays(date: string, days: number) {
 
 export function SalesForecast({
   history,
+  basePath = "/admin",
 }: {
   history: SalesReportData["forecastHistory"]
+  basePath?: "/admin" | "/cashier"
 }) {
   const [forecast, setForecast] = useState<ForecastView | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -149,7 +151,7 @@ export function SalesForecast({
           </CardTitle>
           <CardDescription>
             Displays the latest forecast from the model trained on one year of
-            daily sales. Train or update it in Model Training.
+            daily sales.
           </CardDescription>
         </div>
         <Button onClick={loadForecast} disabled={loading || !enoughHistory}>
@@ -161,7 +163,7 @@ export function SalesForecast({
           {loading
             ? "Loading forecast…"
             : modelMissing
-              ? "Check trained model"
+              ? "Check saved model"
               : forecast
                 ? "Refresh forecast"
                 : "Load forecast"}
@@ -190,15 +192,21 @@ export function SalesForecast({
 
         {modelMissing && enoughHistory && (
           <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-            No compatible one-year model is saved yet. Train it once in{" "}
-            <Link
-              href="/admin/training"
-              className="font-medium text-foreground underline underline-offset-4"
-            >
-              Model Training
-            </Link>{" "}
-            to build it from the one-year daily history. This page will display
-            that saved result without training again.
+            {basePath === "/admin" ? (
+              <>
+                No compatible one-year model is saved yet. Train it once in{" "}
+                <Link
+                  href="/admin/training"
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  Model Training
+                </Link>{" "}
+                to build it from the one-year daily history. This page will
+                display that saved result without training again.
+              </>
+            ) : (
+              "No compatible forecast model is saved yet. Ask an administrator to prepare the model before viewing the forecast."
+            )}
           </div>
         )}
 

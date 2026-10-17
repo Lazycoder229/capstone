@@ -29,7 +29,7 @@ import {
   type ReceiptTemplateSettings,
 } from "@/components/receipt/receipt-template"
 
-type Filter = "active" | "pending" | "preparing" | "ready" | "served" | "history" | "all"
+type Filter = "active" | "pending" | "preparing" | "ready" | "served" | "history"
 const filters: { id: Filter; label: string }[] = [
   { id: "active", label: "Active" },
   { id: "pending", label: "New" },
@@ -37,7 +37,6 @@ const filters: { id: Filter; label: string }[] = [
   { id: "ready", label: "Ready" },
   { id: "served", label: "Served" },
   { id: "history", label: "History" },
-  { id: "all", label: "All orders" },
 ]
 const statusLabel: Record<OrderStatus, string> = {
   pending: "New",
@@ -218,7 +217,7 @@ export function LiveOrdersBoard({
   const servedCount = displayOrders.filter((order) => order.status === "served").length
   const visibleFilters =
     basePath === "/cashier"
-      ? filters.filter((item) => !["active", "all"].includes(item.id))
+      ? filters.filter((item) => item.id !== "active")
       : filters
 
   useEffect(() => {
@@ -851,7 +850,7 @@ export function LiveOrdersBoard({
             <h2 className="mt-3 font-medium">
               {searchQuery
                 ? "No matching orders"
-                : `No ${filter === "active" ? "active" : filter === "all" ? "" : `${filter} `}orders`}
+                : `No ${filter === "active" ? "active" : `${filter} `}orders`}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {searchQuery

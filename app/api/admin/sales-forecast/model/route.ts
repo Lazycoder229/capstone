@@ -24,8 +24,15 @@ async function hasAdminAccess() {
   )
 }
 
+async function canReadForecast() {
+  const staff = await getStaffSession()
+  return Boolean(
+    staff && /^(admin|administrator|cashier)$/i.test(staff.roleName.trim())
+  )
+}
+
 export async function GET() {
-  if (!(await hasAdminAccess()))
+  if (!(await canReadForecast()))
     return Response.json(
       { message: "Administrator access required." },
       { status: 403 }
