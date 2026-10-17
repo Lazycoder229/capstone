@@ -255,7 +255,7 @@ export function LiveOrdersBoard({
       setCustomerPaymentQr("")
       return
     }
-    const link = `${window.location.origin}/payment-reference/${customerPaymentLinkToken}`
+    const link = `${window.location.origin}/customer/payment-reference/${customerPaymentLinkToken}`
     void QRCode.toDataURL(link, { width: 240, margin: 1 }).then(
       setCustomerPaymentQr
     )
@@ -1479,12 +1479,12 @@ export function LiveOrdersBoard({
               <div className="mx-auto my-4 size-60 animate-pulse rounded bg-muted" />
             )}
             <Link
-              href={`/payment-reference/${customerPaymentLinkToken}`}
+              href={`/customer/payment-reference/${customerPaymentLinkToken}`}
               target="_blank"
               rel="noreferrer"
               className="text-sm break-all text-primary underline underline-offset-4"
             >
-              {`/payment-reference/${customerPaymentLinkToken}`}
+              {`/customer/payment-reference/${customerPaymentLinkToken}`}
             </Link>
             <div className="mt-4 flex justify-center">
               <Button

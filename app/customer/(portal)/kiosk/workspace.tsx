@@ -158,7 +158,7 @@ export function CustomerKiosk({
       setReferenceQr("")
       return
     }
-    const url = `${window.location.origin}/payment-reference/${createdOrder.paymentReferenceToken}`
+    const url = `${window.location.origin}/customer/payment-reference/${createdOrder.paymentReferenceToken}`
     void QRCode.toDataURL(url, { width: 220, margin: 1 }).then(setReferenceQr)
   }, [createdOrder, selectedMethod?.id])
 
@@ -418,9 +418,7 @@ export function CustomerKiosk({
                   <div className="mx-auto my-2 size-44 animate-pulse rounded bg-muted" />
                 )}
                 <Link
-                  target="_blank"
-                  rel="noreferrer"
-                  href={`/payment-reference/${createdOrder.paymentReferenceToken}`}
+                  href={`/customer/payment-reference/${createdOrder.paymentReferenceToken}`}
                   className="text-sm font-medium text-primary underline underline-offset-4"
                 >
                   Open reference form

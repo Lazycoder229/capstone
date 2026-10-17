@@ -5,7 +5,7 @@ import { CustomerReferenceForm } from "./reference-form"
 
 export const dynamic = "force-dynamic"
 
-export default async function PaymentReferencePage({
+export async function PaymentReferenceContent({
   params,
 }: {
   params: Promise<{ token: string }>
@@ -60,3 +60,5 @@ export default async function PaymentReferencePage({
     </main>
   )
 }
+
+export default PaymentReferenceContent

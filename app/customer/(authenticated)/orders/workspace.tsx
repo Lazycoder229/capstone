@@ -197,7 +197,7 @@ export function CustomerOrders({ orders }: { orders: OrderRow[] }) {
                     order.paymentReferenceToken ? (
                       <Button asChild size="sm" variant="outline">
                         <Link
-                          href={`/payment-reference/${order.paymentReferenceToken}`}
+                          href={`/customer/payment-reference/${order.paymentReferenceToken}`}
                         >
                           <FileText className="size-4" />
                           Submit payment reference
