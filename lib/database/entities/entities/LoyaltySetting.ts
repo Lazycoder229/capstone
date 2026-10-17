@@ -7,7 +7,16 @@ export class LoyaltySetting {
   @PrimaryColumn({ type: "char", length: 36 })
   id!: string
 
-  @Column({ name: "points_per_tier", type: "int", default: 5 })
+  // Keep the existing database column name so deployed databases work even
+  // before the settings migration is applied; the value now means tier points.
+  @Column({
+    name: "points_per_peso",
+    type: "decimal",
+    precision: 5,
+    scale: 2,
+    default: 5,
+    transformer: decimal,
+  })
   pointsPerTier!: number
 
   @Column({
