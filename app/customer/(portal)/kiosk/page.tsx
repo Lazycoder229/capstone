@@ -1,6 +1,7 @@
 import { getInitializedDataSource } from "@/lib/database/data-source"
 import { getCustomerSession } from "@/lib/customer-auth/session"
 import { Category } from "@/lib/database/entities/entities/Category"
+import { DiscountType } from "@/lib/database/entities/entities/DiscountType"
 import { MenuItem } from "@/lib/database/entities/entities/MenuItem"
 import { Promotion } from "@/lib/database/entities/entities/Promotion"
 import { RestaurantTable } from "@/lib/database/entities/entities/RestaurantTable"
@@ -9,6 +10,7 @@ import { dateOnlyInManila } from "@/lib/dates/date-only"
 import { CustomerKiosk } from "./workspace"
 import type {
   KioskMenuItem,
+  KioskDiscount,
   KioskPaymentMethod,
   KioskPromotion,
   KioskTable,
@@ -26,7 +28,7 @@ export default async function CustomerKioskPage({
   const tableIdParam = Array.isArray(params.tableId) ? params.tableId[0] : params.tableId
   const initialTableId = tableIdParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(tableIdParam) ? tableIdParam : null
   const source = await getInitializedDataSource()
-  const [menus, categories, availableTables, scannedTable, promotions, settings] = await Promise.all([
+  const [menus, categories, availableTables, scannedTable, promotions, discounts, settings] = await Promise.all([
     source.getRepository(MenuItem).find({
       where: { isAvailable: true },
       relations: { category: true },
@@ -44,6 +46,9 @@ export default async function CustomerKioskPage({
     source
       .getRepository(Promotion)
       .find({ relations: { items: true }, order: { name: "ASC" } }),
+    source
+      .getRepository(DiscountType)
+      .find({ where: { isActive: true }, order: { name: "ASC" } }),
     source
       .getRepository(SystemSetting)
       .createQueryBuilder("settings")
@@ -76,6 +81,15 @@ export default async function CustomerKioskPage({
       minSpend: item.minSpend === null ? null : Number(item.minSpend),
       menuItemIds: item.items.map((menu) => menu.id),
     }))
+  const activeDiscounts: KioskDiscount[] =
+    settings?.seniorPwdDiscountEnabled === false
+      ? []
+      : discounts.map((item) => ({
+          id: item.id,
+          name: item.name,
+          percentage: Number(item.percentage),
+          requiresIdVerification: item.requiresIdVerification,
+        }))
   const paymentMethods: KioskPaymentMethod[] = [
     ...(settings?.paymentCashEnabled !== false
       ? [{ id: "cash" as const, label: "Cash at counter", qrImage: null }]
@@ -122,6 +136,7 @@ export default async function CustomerKioskPage({
       categories={[...new Set(["All", ...categories.map((item) => item.name)])]}
       tables={tableOptions}
       promotions={activePromotions}
+      discounts={activeDiscounts}
       paymentMethods={paymentMethods}
       pricing={{
         vatEnabled: settings?.vatEnabled ?? false,
@@ -133,6 +148,27 @@ export default async function CustomerKioskPage({
       }}
       currencyCode={settings?.currencyCode ?? "PHP"}
       currencySymbol={settings?.currencySymbol ?? "₱"}
+      receiptSettings={{
+        restaurantName: settings?.restaurantName ?? "PRIME Roast & Grill",
+        branchName: settings?.branchName ?? "",
+        contactNumber: settings?.contactNumber ?? "",
+        email: settings?.email ?? "",
+        address: settings?.address ?? "",
+        tinNumber: settings?.tinNumber ?? null,
+        birMin: settings?.birMin ?? null,
+        currencySymbol: settings?.currencySymbol ?? "₱",
+        currencyCode: settings?.currencyCode ?? "PHP",
+        vatEnabled: settings?.vatEnabled ?? false,
+        vatRate: Number(settings?.vatRate ?? 0),
+        vatInclusive: settings?.vatInclusive ?? false,
+        serviceChargeEnabled: settings?.serviceChargeEnabled ?? false,
+        serviceChargeRate: Number(settings?.serviceChargeRate ?? 0),
+        receiptHeader: settings?.receiptHeader ?? null,
+        receiptFooter: settings?.receiptFooter ?? null,
+        wifiSsid: settings?.wifiSsid ?? null,
+        wifiPassword: settings?.wifiPassword ?? undefined,
+        showWifiOnReceipt: settings?.showWifiOnReceipt ?? false,
+      }}
     />
   )
 }

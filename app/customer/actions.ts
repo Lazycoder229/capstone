@@ -10,6 +10,8 @@ import { LoyaltyReward } from "@/lib/database/entities/entities/LoyaltyReward"
 import { LoyaltyTransaction } from "@/lib/database/entities/entities/LoyaltyTransaction"
 import { MenuItem } from "@/lib/database/entities/entities/MenuItem"
 import { Order } from "@/lib/database/entities/entities/Order"
+import { DiscountType } from "@/lib/database/entities/entities/DiscountType"
+import { OrderDiscount } from "@/lib/database/entities/entities/OrderDiscount"
 import { OrderItem } from "@/lib/database/entities/entities/OrderItem"
 import { OrderPromotion } from "@/lib/database/entities/entities/OrderPromotion"
 import { OrderStatusHistory } from "@/lib/database/entities/entities/OrderStatusHistory"
@@ -31,6 +33,9 @@ const orderSchema = z.object({
   guestContactNumber: z.string().trim().max(20).nullable(),
   paymentMethod: z.enum(["cash", "gcash", "maya", "qrph"]),
   promotionId: z.string().uuid().nullable(),
+  discountTypeId: z.string().uuid().nullable(),
+  discountHolderName: z.string().trim().max(100).nullable(),
+  discountIdNumber: z.string().trim().max(50).nullable(),
   lines: z
     .array(
       z.object({
@@ -84,7 +89,8 @@ export async function updateCustomerProfile(formData: FormData) {
 
 export async function createCustomerOrder(formData: FormData) {
   const sessionCustomer = await getCustomerSession()
-  const customer = sessionCustomer && !sessionCustomer.isGuest ? sessionCustomer : null
+  const customer =
+    sessionCustomer && !sessionCustomer.isGuest ? sessionCustomer : null
   let lines: unknown
   try {
     lines = JSON.parse(String(formData.get("lines") ?? ""))
@@ -101,6 +107,13 @@ export async function createCustomerOrder(formData: FormData) {
     promotionId: formData.get("promotionId")
       ? String(formData.get("promotionId"))
       : null,
+    discountTypeId: formData.get("discountTypeId")
+      ? String(formData.get("discountTypeId"))
+      : null,
+    discountHolderName:
+      String(formData.get("discountHolderName") ?? "").trim() || null,
+    discountIdNumber:
+      String(formData.get("discountIdNumber") ?? "").trim() || null,
     lines,
   })
   if (!parsed.success)
@@ -120,7 +133,9 @@ export async function createCustomerOrder(formData: FormData) {
           .getRepository(Customer)
           .findOneBy({ id: customer.id })
         if (!customerRecord || customerRecord.isGuest)
-          throw new Error("Your customer account is unavailable. Sign in again.")
+          throw new Error(
+            "Your customer account is unavailable. Sign in again."
+          )
         customerId = customerRecord.id
       } else {
         const guestRepository = manager.getRepository(Customer)
@@ -154,11 +169,13 @@ export async function createCustomerOrder(formData: FormData) {
           "That payment method is not available. Refresh and choose another."
         )
       if (parsed.data.paymentMethod !== "cash") {
-        const imageColumn = {
+        const imageColumns = {
           gcash: "gcashQrImage",
           maya: "mayaQrImage",
           qrph: "qrphQrImage",
-        }[parsed.data.paymentMethod]
+        } as const
+        const imageColumn =
+          imageColumns[parsed.data.paymentMethod as keyof typeof imageColumns]
         const paymentSettings = await manager
           .getRepository(SystemSetting)
           .createQueryBuilder("settings")
@@ -234,8 +251,32 @@ export async function createCustomerOrder(formData: FormData) {
         Math.round(
           itemRows.reduce((sum, item) => sum + item.subtotal, 0) * 100
         ) / 100
+      let discountType: DiscountType | null = null
+      let discountAmount = 0
+      if (parsed.data.discountTypeId) {
+        if (settings?.seniorPwdDiscountEnabled === false)
+          throw new Error("Discounts are currently unavailable.")
+        discountType = await manager
+          .getRepository(DiscountType)
+          .findOneBy({ id: parsed.data.discountTypeId, isActive: true })
+        if (!discountType)
+          throw new Error("That discount type is no longer available.")
+        if (!parsed.data.discountHolderName)
+          throw new Error("Enter the discount holder name.")
+        if (
+          discountType.requiresIdVerification &&
+          !parsed.data.discountIdNumber
+        )
+          throw new Error("Enter the required discount ID number.")
+        discountAmount = Math.min(
+          subtotal,
+          Math.round(
+            ((subtotal * Number(discountType.percentage)) / 100) * 100
+          ) / 100
+        )
+      }
       let promotion: Promotion | null = null
-      let discount = 0
+      let promotionDiscount = 0
       if (parsed.data.promotionId) {
         const promoRepository = manager.getRepository(Promotion)
         promotion = await promoRepository
@@ -282,16 +323,18 @@ export async function createCustomerOrder(formData: FormData) {
           throw new Error(
             "The selected promotion does not apply to these items."
           )
+        const promotionBase = Math.max(0, eligibleSubtotal - discountAmount)
         const value = Number(promotion.discountValue ?? 0)
-        discount = Math.min(
-          eligibleSubtotal,
+        promotionDiscount = Math.min(
+          promotionBase,
           Math.round(
             (promotion.promoType === "percentage"
-              ? (eligibleSubtotal * value) / 100
+              ? (promotionBase * value) / 100
               : value) * 100
           ) / 100
         )
       }
+      const discount = Math.min(subtotal, discountAmount + promotionDiscount)
       const taxableSubtotal = Math.max(0, subtotal - discount)
       const vatRate = Number(settings?.vatRate ?? 0)
       const tax = settings?.vatEnabled
@@ -351,13 +394,26 @@ export async function createCustomerOrder(formData: FormData) {
               .create({ ...line, orderId: order.id })
           )
         )
-      if (promotion && discount > 0) {
+      if (discountType && discountAmount > 0) {
+        await manager.getRepository(OrderDiscount).save(
+          manager.getRepository(OrderDiscount).create({
+            id: randomUUID(),
+            orderId: order.id,
+            discountTypeId: discountType.id,
+            idNumber: parsed.data.discountIdNumber || null,
+            holderName: parsed.data.discountHolderName!,
+            discountAmount,
+            appliedByStaffId: null,
+          })
+        )
+      }
+      if (promotion && promotionDiscount > 0) {
         await manager.getRepository(OrderPromotion).save(
           manager.getRepository(OrderPromotion).create({
             id: randomUUID(),
             orderId: order.id,
             promotionId: promotion.id,
-            discountAmount: discount,
+            discountAmount: promotionDiscount,
           })
         )
         promotion.usageCount += 1
@@ -381,6 +437,24 @@ export async function createCustomerOrder(formData: FormData) {
         orderNumber: order.orderNumber,
         paymentReferenceToken,
         guestOrder: !customer,
+        receipt: {
+          receiptNumber: order.orderNumber,
+          date: order.createdAt.toISOString(),
+          items: itemRows.map((line) => ({
+            name: menuById.get(line.menuItemId)?.name ?? "Menu item",
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+          })),
+          paymentMethod: parsed.data.paymentMethod,
+          cashier: "PRIME",
+          totals: {
+            subtotal,
+            discount,
+            tax,
+            serviceCharge,
+            total,
+          },
+        },
       }
     })
     refreshCustomerPages()
@@ -637,9 +711,19 @@ export async function getCustomerDigitalReceipt(orderId: string) {
     source.getRepository(SystemSetting).findOne({ where: {} }),
   ])
   if (!order || !settings) return null
-  const payment = [...(order.payments ?? [])].sort((a, b) => b.paidAt.getTime() - a.paidAt.getTime())[0]
-  const taxableSubtotal = Math.max(0, Number(order.subtotal) - Number(order.discount))
-  const serviceCharge = Math.max(0, Number(order.total) - taxableSubtotal - (settings.vatEnabled && !settings.vatInclusive ? Number(order.tax) : 0))
+  const payment = [...(order.payments ?? [])].sort(
+    (a, b) => b.paidAt.getTime() - a.paidAt.getTime()
+  )[0]
+  const taxableSubtotal = Math.max(
+    0,
+    Number(order.subtotal) - Number(order.discount)
+  )
+  const serviceCharge = Math.max(
+    0,
+    Number(order.total) -
+      taxableSubtotal -
+      (settings.vatEnabled && !settings.vatInclusive ? Number(order.tax) : 0)
+  )
   return {
     settings: {
       restaurantName: settings.restaurantName,

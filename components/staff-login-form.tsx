@@ -15,7 +15,7 @@ export function StaffLoginForm({
   portal,
 }: {
   action: LoginAction
-  portal: "Cashier" | "Admin"
+  portal: "Cashier" | "Admin" | "Employee"
 }) {
   const [state, formAction, pending] = useActionState(action, null)
 

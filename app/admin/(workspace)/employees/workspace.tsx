@@ -69,7 +69,10 @@ export function EmployeesWorkspace({
       name: "",
       email: "",
       contactNumber: null,
-      roleId: roles[0]?.id ?? "",
+      roleId:
+        roles.find((role) => role.name.trim().toLowerCase() === "staff")?.id ??
+        roles[0]?.id ??
+        "",
       accountActive: true,
       employeeNumber: "",
       position: "",
@@ -113,7 +116,14 @@ export function EmployeesWorkspace({
             Employee Management
           </h1>
           <p className="text-sm text-muted-foreground">
-            Staff accounts are linked to their role and employee record.
+            Create employee accounts here. Staff can sign in at{" "}
+            <Link
+              href="/employee/login"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              the employee portal
+            </Link>{" "}
+            to view their attendance and payslips.
           </p>
         </div>
         <Button size="sm" onClick={newEmployee} disabled={!roles.length}>

@@ -99,7 +99,7 @@ export async function bootstrapFirstAdministrator(input: AdminBootstrapInput) {
 
     const permissionRepository = manager.getRepository(Permission)
     const allPermissions = await permissionRepository.find()
-    const requiredCodes = new Set(
+    const requiredCodes = new Set<string>(
       ACCESS_PERMISSIONS.map((permission) => permission.code)
     )
     const administratorPermissions = allPermissions.filter((permission) =>

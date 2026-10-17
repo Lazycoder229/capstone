@@ -8,7 +8,7 @@ export default async function ReportsPage({
 }) {
   try {
     const params = searchParams ? await searchParams : {}
-    const data = await getSalesReportData(params)
+    const data = await getSalesReportData(params, { includeForecast: true })
     return <SalesReportsWorkspace data={data} />
   } catch (error) {
     console.error("Unable to load sales reports:", error)

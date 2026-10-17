@@ -14,6 +14,7 @@ const SESSION_LIFETIME_SECONDS = 60 * 60 * 12
 
 export type StaffIdentity = {
   id: string
+  employeeId: string
   name: string
   email: string
   roleName: string
@@ -76,12 +77,22 @@ export async function getStaffSession(): Promise<StaffIdentity | null> {
 
   return {
     id: user.id,
+    employeeId: user.employee.id,
     name: user.name,
     email: user.email,
     roleName: user.role?.name ?? "",
     permissionCodes:
       user.role?.permissions.map((permission) => permission.code) ?? [],
   }
+}
+
+export async function requireEmployeeSession() {
+  const staff = await getStaffSession()
+  if (!staff) redirect("/employee/login")
+  if (/^(admin|administrator)$/i.test(staff.roleName.trim()))
+    redirect("/admin")
+  if (staff.permissionCodes.includes("orders:view")) redirect("/cashier")
+  return staff
 }
 
 export async function requireStaffPermission(

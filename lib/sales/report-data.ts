@@ -28,6 +28,7 @@ export type SalesReportData = {
     paymentsCollected: number
   }
   daily: Array<{ date: string; label: string; sales: number; orders: number }>
+  forecastHistory: Array<{ date: string; sales: number }>
   topItems: Array<{ name: string; quantity: number; sales: number }>
   payments: Array<{ method: string; count: number; amount: number }>
   statuses: Array<{ status: string; count: number }>
@@ -70,6 +71,14 @@ export function defaultSalesReportRange(now = new Date()): SalesReportRange {
   return { start: addDays(today, -29), end: today }
 }
 
+const manilaDate = (date = new Date()) =>
+  new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Manila",
+  }).format(date)
+
 export function parseSalesReportRange(
   input: Partial<SalesReportRange>,
   fallback = defaultSalesReportRange()
@@ -85,9 +94,40 @@ export function parseSalesReportRange(
   return parsed.data
 }
 
+export async function getSalesForecastHistory(
+  now = new Date()
+): Promise<SalesReportData["forecastHistory"]> {
+  const end = manilaDate(now)
+  const start = addDays(end, -364)
+  const repository = (await getInitializedDataSource()).getRepository(Order)
+  const rows = await repository
+    .createQueryBuilder("order")
+    .select("DATE(order.createdAt)", "date")
+    .addSelect("COALESCE(SUM(order.total), 0)", "sales")
+    .where("order.status = :status", { status: "completed" })
+    .andWhere("order.createdAt >= :start AND order.createdAt < :end", {
+      start: `${start} 00:00:00`,
+      end: `${addDays(end, 1)} 00:00:00`,
+    })
+    .groupBy("DATE(order.createdAt)")
+    .orderBy("DATE(order.createdAt)", "ASC")
+    .getRawMany()
+  const dailyMap = new Map<string, number>(
+    rows.map((row: Record<string, unknown>) => [
+      String(row.date).slice(0, 10),
+      num(row.sales),
+    ])
+  )
+  const history: SalesReportData["forecastHistory"] = []
+  for (let day = start; day <= end; day = addDays(day, 1)) {
+    history.push({ date: day, sales: dailyMap.get(day) ?? 0 })
+  }
+  return history
+}
+
 export async function getSalesReportData(
   requestedRange: Partial<SalesReportRange>,
-  options: { includeAllOrders?: boolean } = {}
+  options: { includeAllOrders?: boolean; includeForecast?: boolean } = {}
 ): Promise<SalesReportData> {
   const range = parseSalesReportRange(requestedRange)
   const endExclusive = `${addDays(range.end, 1)} 00:00:00`
@@ -112,6 +152,7 @@ export async function getSalesReportData(
     paymentRows,
     statusRows,
     recent,
+    forecastHistory,
     setting,
     mainBranch,
   ] = await Promise.all([
@@ -182,6 +223,7 @@ export async function getSalesReportData(
       .orderBy("count", "DESC")
       .getRawMany(),
     ordersQuery.getMany(),
+    options.includeForecast ? getSalesForecastHistory() : Promise.resolve([]),
     source.getRepository(SystemSetting).findOne({
       where: {},
       select: {
@@ -246,6 +288,7 @@ export async function getSalesReportData(
       ),
     },
     daily,
+    forecastHistory,
     topItems: itemRows.map((row: Record<string, unknown>) => ({
       name: String(row.name ?? "Menu item"),
       quantity: num(row.quantity),

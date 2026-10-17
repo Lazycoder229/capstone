@@ -45,6 +45,7 @@ import {
   QrCode,
   ShelvingUnit,
   Gift,
+  BrainCircuit,
 } from "lucide-react"
 import { logoutAdmin } from "@/lib/staff-auth/actions"
 
@@ -87,6 +88,7 @@ const groups = [
         url: "/admin/reports",
         icon: BarChart3,
       },
+      { title: "Model Training", url: "/admin/training", icon: BrainCircuit },
     ],
   },
   {

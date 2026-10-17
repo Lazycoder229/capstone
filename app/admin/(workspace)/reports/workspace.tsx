@@ -13,6 +13,7 @@ import {
 import { useState } from "react"
 import {
   ArrowDownToLine,
+  BrainCircuit,
   CircleDollarSign,
   ClipboardList,
   FileSpreadsheet,
@@ -44,6 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { SalesReportData } from "@/lib/sales/report-data"
+import { SalesForecast } from "./sales-forecast"
 
 const currency = (value: number) =>
   new Intl.NumberFormat("en-PH", {
@@ -97,7 +99,7 @@ export function SalesReportsWorkspace({
   const maxStatus = Math.max(1, ...data.statuses.map((status) => status.count))
   const maxItemSales = Math.max(1, ...data.topItems.map((item) => item.sales))
   const [activeDetail, setActiveDetail] = useState<
-    "overview" | "items" | "status" | "orders"
+    "overview" | "items" | "status" | "orders" | "forecast"
   >("overview")
   const reportPath =
     title === "Sales" ? `${basePath}/sales` : `${basePath}/reports`
@@ -145,6 +147,17 @@ export function SalesReportsWorkspace({
         <DetailTab id="orders" active={activeDetail} onSelect={setActiveDetail}>
           Recent orders
         </DetailTab>
+        {basePath === "/admin" && (
+          <DetailTab
+            id="forecast"
+            active={activeDetail}
+            onSelect={setActiveDetail}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <BrainCircuit className="size-3.5" /> Forecast
+            </span>
+          </DetailTab>
+        )}
       </div>
 
       {activeDetail === "overview" && (
@@ -359,6 +372,9 @@ export function SalesReportsWorkspace({
       )}
 
       <section className="space-y-3">
+        {activeDetail === "forecast" && basePath === "/admin" && (
+          <SalesForecast history={data.forecastHistory} />
+        )}
         {activeDetail === "items" && (
           <Card
             role="tabpanel"
@@ -591,9 +607,11 @@ function DetailTab({
   onSelect,
   children,
 }: {
-  id: "items" | "status" | "orders"
-  active: "items" | "status" | "orders"
-  onSelect: (id: "items" | "status" | "orders") => void
+  id: "overview" | "items" | "status" | "orders" | "forecast"
+  active: "overview" | "items" | "status" | "orders" | "forecast"
+  onSelect: (
+    id: "overview" | "items" | "status" | "orders" | "forecast"
+  ) => void
   children: React.ReactNode
 }) {
   const selected = active === id

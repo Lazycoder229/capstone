@@ -18,6 +18,13 @@ export type KioskPromotion = {
   menuItemIds: string[]
 }
 
+export type KioskDiscount = {
+  id: string
+  name: string
+  percentage: number
+  requiresIdVerification: boolean
+}
+
 export type KioskPaymentMethod = {
   id: "cash" | "gcash" | "maya" | "qrph"
   label: string

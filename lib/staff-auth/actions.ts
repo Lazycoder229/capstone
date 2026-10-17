@@ -24,7 +24,7 @@ const loginSchema = z.object({
 
 async function authenticateStaff(
   formData: FormData,
-  portal: "admin" | "cashier"
+  portal: "admin" | "cashier" | "employee"
 ): Promise<StaffAuthState> {
   const parsed = loginSchema.safeParse({
     email: String(formData.get("email") ?? ""),
@@ -65,7 +65,11 @@ async function authenticateStaff(
       portal === "admin"
         ? /^(admin|administrator)$/i.test(role?.name?.trim() ?? "") &&
           permissionCodes.includes("employees:manage")
-        : permissionCodes.includes("orders:view")
+        : portal === "cashier"
+          ? permissionCodes.includes("orders:view")
+          : Boolean(employee) &&
+            !/^(admin|administrator)$/i.test(role?.name?.trim() ?? "") &&
+            !permissionCodes.includes("orders:view")
 
     const checks = {
       userFound: true,
@@ -99,7 +103,13 @@ async function authenticateStaff(
     }
   }
 
-  redirect(portal === "admin" ? "/admin" : "/cashier")
+  redirect(
+    portal === "admin"
+      ? "/admin"
+      : portal === "cashier"
+        ? "/cashier"
+        : "/employee"
+  )
 }
 
 export async function loginCashier(
@@ -116,6 +126,13 @@ export async function loginAdmin(
   return authenticateStaff(formData, "admin")
 }
 
+export async function loginEmployee(
+  _previous: StaffAuthState,
+  formData: FormData
+) {
+  return authenticateStaff(formData, "employee")
+}
+
 export async function logoutCashier() {
   await destroyStaffSession()
   redirect("/cashier/login")
@@ -124,4 +141,9 @@ export async function logoutCashier() {
 export async function logoutAdmin() {
   await destroyStaffSession()
   redirect("/admin/login")
+}
+
+export async function logoutEmployee() {
+  await destroyStaffSession()
+  redirect("/employee/login")
 }

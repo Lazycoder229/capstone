@@ -8,7 +8,7 @@ export default async function SalesPage({
 }) {
   try {
     const params = searchParams ? await searchParams : {}
-    const data = await getSalesReportData(params)
+    const data = await getSalesReportData(params, { includeForecast: true })
     return (
       <SalesReportsWorkspace
         data={data}

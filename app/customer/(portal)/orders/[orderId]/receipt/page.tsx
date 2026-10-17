@@ -23,7 +23,7 @@ export default async function CustomerReceiptPage({
     .findOne({ where: {} })
   if (!settings) notFound()
   const payment = [...(order.payments ?? [])].sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    (a, b) => b.paidAt.getTime() - a.paidAt.getTime()
   )[0]
   const taxableSubtotal = Math.max(
     0,
