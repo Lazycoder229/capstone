@@ -27,20 +27,20 @@ export function RestaurantScrollBot() {
           maxScroll > 0
             ? Math.max(0, Math.min(1, window.scrollY / maxScroll))
             : 0
-        const topInset = 30
-        const mascotHeight =
+        const mascotWidth =
           scene.querySelector(".restaurant-scroll-mascot")?.getBoundingClientRect()
-            .height ?? 150
+            .width ?? 150
+        const sideInset = 28
         const travel = Math.max(
           0,
-          window.innerHeight - topInset - mascotHeight - 30
+          scene.clientWidth - mascotWidth - sideInset * 2
         )
         const action =
           actions.find((item) => progress <= item.limit) ?? actions[2]
 
         scene.style.setProperty(
-          "--restaurant-bot-y",
-          `${topInset + progress * travel}px`
+          "--restaurant-bot-x",
+          `${sideInset + progress * travel}px`
         )
         scene.dataset.action = action.name
         scene.dataset.actionLabel = action.label
@@ -78,8 +78,8 @@ export function RestaurantScrollBot() {
       >
         <defs>
           <linearGradient id="restaurant-wall" x1="360" y1="0" x2="360" y2="900" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#9B6B38" stopOpacity=".18" />
-            <stop offset="1" stopColor="#15100B" stopOpacity=".02" />
+            <stop stopColor="#D8D1C3" stopOpacity=".32" />
+            <stop offset="1" stopColor="#F7F8F5" stopOpacity=".08" />
           </linearGradient>
           <linearGradient
             id="restaurant-wood"
@@ -89,20 +89,20 @@ export function RestaurantScrollBot() {
             y2="900"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stopColor="#D6A56A" stopOpacity=".24" />
-            <stop offset="1" stopColor="#694326" stopOpacity=".18" />
+            <stop stopColor="#BBA987" stopOpacity=".28" />
+            <stop offset="1" stopColor="#8C806B" stopOpacity=".18" />
           </linearGradient>
         </defs>
 
         <rect width="720" height="900" fill="url(#restaurant-wall)" />
-        <path d="M80 0V260M330 0V230M585 0V250" stroke="#E7C89A" strokeOpacity=".13" />
-        <path d="M0 245H720M0 265H720" stroke="#E7C89A" strokeOpacity=".1" />
-        <path d="M112 0V72M360 0V62M608 0V82" stroke="#E7C89A" strokeOpacity=".28" />
-        <path d="M75 72H149L162 105H62L75 72ZM323 62H397L410 95H310L323 62ZM571 82H645L658 115H558L571 82Z" fill="#F1C77B" fillOpacity=".12" />
-        <path d="M0 725H720M0 744H720" stroke="#E7C89A" strokeOpacity=".11" />
-        <path d="M115 745V900M355 745V900M595 745V900" stroke="#E7C89A" strokeOpacity=".07" />
+        <path d="M80 0V260M330 0V230M585 0V250" stroke="#716958" strokeOpacity=".11" />
+        <path d="M0 245H720M0 265H720" stroke="#716958" strokeOpacity=".08" />
+        <path d="M112 0V72M360 0V62M608 0V82" stroke="#716958" strokeOpacity=".18" />
+        <path d="M75 72H149L162 105H62L75 72ZM323 62H397L410 95H310L323 62ZM571 82H645L658 115H558L571 82Z" fill="#B79B69" fillOpacity=".1" />
+        <path d="M0 725H720M0 744H720" stroke="#716958" strokeOpacity=".09" />
+        <path d="M115 745V900M355 745V900M595 745V900" stroke="#716958" strokeOpacity=".06" />
 
-        <g opacity=".54" stroke="#F2D5A5" strokeOpacity=".28">
+        <g opacity=".42" stroke="#766A55" strokeOpacity=".24">
           <path d="M20 580H287L316 608H0V602L20 580Z" fill="url(#restaurant-wood)" />
           <path d="M58 608V673M248 608V673" />
           <path d="M30 674H276" strokeOpacity=".12" />

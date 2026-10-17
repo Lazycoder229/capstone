@@ -210,28 +210,35 @@
 
 .restaurant-landing::before {
   position: fixed;
-  z-index: 2;
+  z-index: 0;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 4% 18%, #e99c3c12, transparent 33%),
-    radial-gradient(ellipse at 94% 73%, #f0bd7110, transparent 30%),
-    repeating-linear-gradient(90deg, transparent 0 118px, #e9c58a04 119px 120px);
+    radial-gradient(ellipse at 4% 18%, #d4b98a18, transparent 33%),
+    radial-gradient(ellipse at 94% 73%, #c3d8d216, transparent 30%),
+    repeating-linear-gradient(90deg, transparent 0 118px, #53615a08 119px 120px);
   content: "";
 }
 
 .restaurant-scroll-scene {
   position: fixed;
-  z-index: 18;
+  z-index: 1;
   top: 0;
-  right: clamp(0px, calc((100vw - 1220px) / 2), 96px);
-  width: min(84vw, 1280px);
+  left: 0;
+  right: 0;
+  width: 100%;
   height: 100dvh;
   overflow: hidden;
   pointer-events: none;
-  opacity: 0.24;
-  mix-blend-mode: screen;
-  mask-image: linear-gradient(90deg, transparent 0%, #000 18%, #000 88%, transparent 100%);
+  opacity: 0.34;
+  mix-blend-mode: multiply;
+  mask-image: linear-gradient(90deg, #000 0%, #000 92%, transparent 100%);
+}
+
+.restaurant-landing > section,
+.restaurant-landing > footer {
+  position: relative;
+  z-index: 2;
 }
 
 .restaurant-scene-art {
@@ -243,21 +250,21 @@
 
 .restaurant-scroll-track {
   position: absolute;
-  top: 30px;
-  bottom: 30px;
-  left: 20%;
-  border-left: 1px dashed #f4d7a333;
+  top: 50%;
+  right: 28px;
+  left: 28px;
+  border-top: 1px dashed #68766b66;
 }
 
 .restaurant-scroll-mascot {
   position: absolute;
-  top: 0;
-  left: 20%;
+  top: 50%;
+  left: 0;
   width: 150px;
   height: 184px;
   overflow: visible;
-  transform: translate3d(-50%, var(--restaurant-bot-y, 20vh), 0);
-  filter: drop-shadow(0 10px 20px #ffbd6330);
+  transform: translate3d(var(--restaurant-bot-x, 28px), -50%, 0);
+  filter: drop-shadow(0 10px 20px #6d655020);
   will-change: transform;
 }
 
@@ -268,25 +275,85 @@
 
 .restaurant-scroll-scene::after {
   position: absolute;
-  top: calc(var(--restaurant-bot-y, 20vh) + 190px);
-  left: 20%;
+  top: calc(50% + 104px);
+  left: calc(var(--restaurant-bot-x, 28px) + 34px);
   padding: 7px 10px;
-  border: 1px solid #f2d5a526;
+  border: 1px solid #68766b40;
   border-radius: 999px;
-  background: #17130de0;
-  color: #f4dfbb;
+  background: #ffffffd9;
+  color: #46564e;
   font: 600 8px/1.2 var(--font-body);
   letter-spacing: 0.14em;
   white-space: nowrap;
   content: attr(data-action-label);
-  transform: translateX(-50%);
+}
+
+/* Keep the public landing page airy while the restaurant scene stays subtle. */
+.restaurant-landing {
+  background-color: #f4f5f2 !important;
+  color: #202c2a !important;
+  background-image:
+    radial-gradient(ellipse at 18% 8%, #e9e3d8 0, transparent 38%),
+    linear-gradient(180deg, #f7f8f5 0%, #f0f2ef 52%, #f8f8f6 100%) !important;
+}
+
+.restaurant-landing [class*="bg-[#0c0d0c]"],
+.restaurant-landing [class*="bg-[#14130f]"],
+.restaurant-landing [class*="bg-[#0d0f0e]"],
+.restaurant-landing [class*="bg-[#100f0c]"],
+.restaurant-landing [class*="bg-[#11110f]"] {
+  background-color: #f5f6f3 !important;
+}
+
+.restaurant-landing [class~="text-white"],
+.restaurant-landing [class~="text-slate-100"] {
+  color: #202c2a !important;
+}
+
+.restaurant-landing [class~="text-slate-300"] {
+  color: #4e5c59 !important;
+}
+
+.restaurant-landing [class~="text-slate-400"],
+.restaurant-landing [class~="text-slate-500"] {
+  color: #697571 !important;
+}
+
+.restaurant-landing [class*="text-cyan-"],
+.restaurant-landing [class*="text-sky-"],
+.restaurant-landing [class*="text-amber-"] {
+  color: #397873 !important;
+}
+
+.restaurant-landing [class*="border-white/"],
+.restaurant-landing [class*="border-cyan-"] {
+  border-color: #52645a26 !important;
+}
+
+.restaurant-landing [class*="bg-white/["],
+.restaurant-landing [class~="bg-white/5"],
+.restaurant-landing [class~="bg-white/10"] {
+  background-color: #ffffffb5 !important;
+}
+
+.restaurant-landing .hero-stage [class~="text-white"] {
+  color: #fff !important;
+}
+
+.restaurant-landing .hero-stage > div[class*="bg-[#0a1421]"],
+.restaurant-landing .hero-stage > div[class*="bg-slate-900"] {
+  background-color: #ffffffed !important;
+  box-shadow: 0 20px 65px #56645c24 !important;
+}
+
+.restaurant-landing .hero-stage > div[class*="bg-[#0a1421]"] [class*="text-cyan-"],
+.restaurant-landing .hero-stage > div[class*="bg-slate-900"] [class*="text-cyan-"] {
+  color: #357a78 !important;
 }
 
 @media (max-width: 640px) {
   .restaurant-scroll-scene {
-    right: -25vw;
-    width: 110vw;
-    opacity: 0.12;
+    opacity: 0.2;
   }
 
   .restaurant-scroll-mascot {
@@ -295,7 +362,8 @@
   }
 
   .restaurant-scroll-scene::after {
-    top: calc(var(--restaurant-bot-y, 20vh) + 140px);
+    top: calc(50% + 78px);
+    left: calc(var(--restaurant-bot-x, 28px) + 24px);
     font-size: 6px;
   }
 }
@@ -308,7 +376,7 @@
   }
 
   .restaurant-scroll-mascot {
-    --restaurant-bot-y: 20vh;
+    --restaurant-bot-x: 28px;
     will-change: auto;
   }
 
