@@ -49,9 +49,8 @@ const groups = [
   {
     label: "Insights",
     items: [
-      { title: "Sales", url: "/cashier/sales", icon: ChartNoAxesCombined },
       {
-        title: "Reports & Analytics",
+        title: "Sales & Reports",
         url: "/cashier/reports",
         icon: BarChart3,
       },
