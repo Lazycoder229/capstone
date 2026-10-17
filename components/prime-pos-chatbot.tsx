@@ -56,11 +56,30 @@ export function PrimePosChatbot({ role }: { role: ChatbotRole }) {
   ])
   const endRef = useRef<HTMLDivElement>(null)
   const openRef = useRef(open)
+  const customerDashboard =
+    role === "customer" && pathname === "/customer/dashboard"
   const customerKiosk =
     role === "customer" && pathname.includes("/customer/kiosk")
   openRef.current = open
 
   useEffect(() => {
+    if (role === "customer") {
+      setShowNudge(false)
+      if (!customerDashboard) return
+
+      let dismissTimer: number | undefined
+      const initialTimer = window.setTimeout(() => {
+        if (document.hidden || openRef.current) return
+        setShowNudge(true)
+        dismissTimer = window.setTimeout(() => setShowNudge(false), 5000)
+      }, 900)
+
+      return () => {
+        window.clearTimeout(initialTimer)
+        if (dismissTimer !== undefined) window.clearTimeout(dismissTimer)
+      }
+    }
+
     let hiddenAt: number | null = null
     const initialTimer = window.setTimeout(() => {
       if (!document.hidden) setShowNudge(true)
@@ -86,7 +105,7 @@ export function PrimePosChatbot({ role }: { role: ChatbotRole }) {
       window.clearTimeout(initialTimer)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  }, [])
+  }, [customerDashboard, role])
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ block: "nearest" })
@@ -137,7 +156,7 @@ export function PrimePosChatbot({ role }: { role: ChatbotRole }) {
           : "bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:bottom-4"
       )}
     >
-      {showNudge && !open && (
+      {showNudge && !open && (role !== "customer" || customerDashboard) && (
         <section
           aria-label="PRIME assistant suggestions"
           className="w-[min(19rem,calc(100vw-2rem))] rounded-2xl border bg-background p-3 shadow-xl"
@@ -251,21 +270,22 @@ export function PrimePosChatbot({ role }: { role: ChatbotRole }) {
                 </div>
               </div>
             )}
-            {messages.length === 1 && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {roleCopy[role].suggestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => sendMessage(suggestion)}
-                    disabled={typing}
-                    className="rounded-full border bg-background px-3 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
+            {messages.length === 1 &&
+              (role !== "customer" || (customerDashboard && showNudge)) && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {roleCopy[role].suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => sendMessage(suggestion)}
+                      disabled={typing}
+                      className="rounded-full border bg-background px-3 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             <div ref={endRef} />
           </div>
 
