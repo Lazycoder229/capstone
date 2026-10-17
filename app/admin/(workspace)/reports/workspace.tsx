@@ -101,8 +101,7 @@ export function SalesReportsWorkspace({
   const [activeDetail, setActiveDetail] = useState<
     "overview" | "items" | "status" | "orders" | "forecast"
   >("overview")
-  const reportPath =
-    title === "Sales" ? `${basePath}/sales` : `${basePath}/reports`
+  const reportPath = `${basePath}/sales`
   const downloadUrl = `${basePath}/reports/download?start=${data.range.start}&end=${data.range.end}`
 
   return (

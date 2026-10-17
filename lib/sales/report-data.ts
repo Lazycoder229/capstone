@@ -55,6 +55,24 @@ const manilaOrderDate =
 const manilaRange = (column: string) =>
   `${column} >= CONVERT_TZ(:start, '+08:00', @@session.time_zone) AND ${column} < CONVERT_TZ(:end, '+08:00', @@session.time_zone)`
 const dateKey = (date: Date) => date.toISOString().slice(0, 10)
+const manilaDateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  timeZone: "Asia/Manila",
+})
+const databaseDateKey = (value: unknown) => {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return manilaDateKeyFormatter.format(value)
+  }
+  const raw = String(value ?? "")
+  const datePart = raw.match(/\d{4}-\d{2}-\d{2}/)?.[0]
+  if (datePart) return datePart
+  const parsed = new Date(raw)
+  return Number.isNaN(parsed.getTime())
+    ? ""
+    : manilaDateKeyFormatter.format(parsed)
+}
 const addDays = (value: string, amount: number) => {
   const date = new Date(`${value}T00:00:00.000Z`)
   date.setUTCDate(date.getUTCDate() + amount)
@@ -120,7 +138,7 @@ export async function getSalesForecastHistory(
     .getRawMany()
   const dailyMap = new Map<string, number>(
     rows.map((row: Record<string, unknown>) => [
-      String(row.date).slice(0, 10),
+      databaseDateKey(row.date),
       num(row.sales),
     ])
   )
@@ -256,7 +274,7 @@ export async function getSalesReportData(
 
   const dailyMap = new Map<string, { sales: number; orders: number }>(
     dailyRows.map((row: Record<string, unknown>) => [
-      String(row.date).slice(0, 10),
+      databaseDateKey(row.date),
       { sales: num(row.sales), orders: num(row.orders) },
     ])
   )

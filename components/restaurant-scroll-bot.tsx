@@ -1,3 +1,7 @@
+"use client"
+
+import { useEffect, useRef } from "react"
+
 type RestaurantRole = "manager" | "crew"
 
 function RestaurantRobot({ role }: { role: RestaurantRole }) {
@@ -48,8 +52,82 @@ function RestaurantRobot({ role }: { role: RestaurantRole }) {
 }
 
 export function RestaurantScrollBot() {
+  const sceneRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const scene = sceneRef.current
+    if (!scene) return
+
+    const manager = scene.querySelector<HTMLElement>(".restaurant-bot-card--manager")
+    const crew = scene.querySelector<HTMLElement>(".restaurant-bot-card--crew")
+    const managerSpeech = scene.querySelector<HTMLElement>(".restaurant-bot-card--manager .restaurant-bot-speech")
+    const crewSpeech = scene.querySelector<HTMLElement>(".restaurant-bot-card--crew .restaurant-bot-speech")
+    if (!manager || !crew || !managerSpeech || !crewSpeech) return
+
+    const conversations = [
+      ["New order is in.", "I’m preparing it now."],
+      ["How is the table?", "I’m serving the guests."],
+      ["All set for the next guests?", "Table is clean and ready."],
+    ]
+    let frame = 0
+    let isScrollEvent = false
+    let idleTimer: ReturnType<typeof setTimeout> | undefined
+    let responseTimer: ReturnType<typeof setTimeout> | undefined
+
+    const updateBots = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight
+        const progress = maxScroll > 0 ? Math.max(0, Math.min(1, window.scrollY / maxScroll)) : 0
+        const viewportHeight = window.innerHeight
+        const managerY = viewportHeight * (0.23 + progress * 0.27)
+        const crewY = viewportHeight * (0.65 + progress * 0.26)
+        const phase = Math.min(2, Math.floor(progress * 3))
+
+        manager.style.top = `${managerY}px`
+        crew.style.top = `${crewY}px`
+        managerSpeech.textContent = conversations[phase][0]
+        crewSpeech.textContent = conversations[phase][1]
+        if (isScrollEvent) {
+          scene.dataset.talking = "true"
+          scene.dataset.speaker = "manager"
+          isScrollEvent = false
+          if (!responseTimer) {
+            responseTimer = setTimeout(() => {
+              scene.dataset.speaker = "crew"
+              responseTimer = undefined
+            }, 450)
+          }
+          if (idleTimer) clearTimeout(idleTimer)
+          idleTimer = setTimeout(() => {
+            scene.dataset.talking = "false"
+            scene.dataset.speaker = ""
+            if (responseTimer) clearTimeout(responseTimer)
+            responseTimer = undefined
+          }, 1500)
+        }
+      })
+    }
+
+    const handleScroll = () => {
+      isScrollEvent = true
+      updateBots()
+    }
+    updateBots()
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    window.addEventListener("resize", updateBots)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener("scroll", handleScroll)
+      window.removeEventListener("resize", updateBots)
+      if (idleTimer) clearTimeout(idleTimer)
+      if (responseTimer) clearTimeout(responseTimer)
+    }
+  }, [])
+
   return (
-    <div className="restaurant-scroll-scene" aria-hidden="true">
+    <div ref={sceneRef} className="restaurant-scroll-scene" data-talking="false" data-speaker="" aria-hidden="true">
       <svg
         className="restaurant-scene-art"
         viewBox="0 0 720 900"
@@ -85,10 +163,12 @@ export function RestaurantScrollBot() {
       <div className="restaurant-bot-card restaurant-bot-card--manager">
         <RestaurantRobot role="manager" />
         <span>MANAGER</span>
+        <span className="restaurant-bot-speech" />
       </div>
       <div className="restaurant-bot-card restaurant-bot-card--crew">
         <RestaurantRobot role="crew" />
         <span>SERVICE CREW</span>
+        <span className="restaurant-bot-speech" />
       </div>
     </div>
   )

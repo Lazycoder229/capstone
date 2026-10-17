@@ -12,7 +12,7 @@ export default async function SalesPage({
     return (
       <SalesReportsWorkspace
         data={data}
-        title="Sales"
+        title="Sales & Reports"
         description="Review completed sales, payments, and order activity for a selected period."
       />
     )

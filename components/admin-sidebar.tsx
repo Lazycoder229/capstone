@@ -33,7 +33,6 @@ import {
   Printer,
   FileX,
   ShieldCheck,
-  BarChart3,
   ChartNoAxesCombined,
   Users,
   Clock3,
@@ -82,12 +81,7 @@ const groups = [
   {
     label: "Insights",
     items: [
-      { title: "Sales", url: "/admin/sales", icon: ChartNoAxesCombined },
-      {
-        title: "Reports & Analytics",
-        url: "/admin/reports",
-        icon: BarChart3,
-      },
+      { title: "Sales & Reports", url: "/admin/sales", icon: ChartNoAxesCombined },
       { title: "Model Training", url: "/admin/training", icon: BrainCircuit },
     ],
   },
