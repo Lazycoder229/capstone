@@ -343,8 +343,7 @@
   left: auto;
 }
 
-.restaurant-scroll-scene[data-talking="true"][data-speaker="manager"] .restaurant-bot-card--manager .restaurant-bot-speech,
-.restaurant-scroll-scene[data-talking="true"][data-speaker="crew"] .restaurant-bot-card--crew .restaurant-bot-speech {
+.restaurant-scroll-scene[data-talking="true"] .restaurant-bot-speech {
   opacity: 1;
   visibility: visible;
 }

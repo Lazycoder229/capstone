@@ -72,7 +72,6 @@ export function RestaurantScrollBot() {
     let frame = 0
     let isScrollEvent = false
     let idleTimer: ReturnType<typeof setTimeout> | undefined
-    let responseTimer: ReturnType<typeof setTimeout> | undefined
 
     const updateBots = () => {
       if (frame) return
@@ -91,20 +90,10 @@ export function RestaurantScrollBot() {
         crewSpeech.textContent = conversations[phase][1]
         if (isScrollEvent) {
           scene.dataset.talking = "true"
-          scene.dataset.speaker = "manager"
           isScrollEvent = false
-          if (!responseTimer) {
-            responseTimer = setTimeout(() => {
-              scene.dataset.speaker = "crew"
-              responseTimer = undefined
-            }, 450)
-          }
           if (idleTimer) clearTimeout(idleTimer)
           idleTimer = setTimeout(() => {
             scene.dataset.talking = "false"
-            scene.dataset.speaker = ""
-            if (responseTimer) clearTimeout(responseTimer)
-            responseTimer = undefined
           }, 1500)
         }
       })
@@ -122,12 +111,11 @@ export function RestaurantScrollBot() {
       window.removeEventListener("scroll", handleScroll)
       window.removeEventListener("resize", updateBots)
       if (idleTimer) clearTimeout(idleTimer)
-      if (responseTimer) clearTimeout(responseTimer)
     }
   }, [])
 
   return (
-    <div ref={sceneRef} className="restaurant-scroll-scene" data-talking="false" data-speaker="" aria-hidden="true">
+    <div ref={sceneRef} className="restaurant-scroll-scene" data-talking="false" aria-hidden="true">
       <svg
         className="restaurant-scene-art"
         viewBox="0 0 720 900"

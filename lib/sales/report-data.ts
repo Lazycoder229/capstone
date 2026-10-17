@@ -4,6 +4,7 @@ import { Order } from "@/lib/database/entities/entities/Order"
 import { OrderItem } from "@/lib/database/entities/entities/OrderItem"
 import { Payment } from "@/lib/database/entities/entities/Payment"
 import { SystemSetting } from "@/lib/database/entities/entities/SystemSetting"
+import { dateOnlyInManila } from "@/lib/dates/date-only"
 import {
   salesReportDateSchema,
   type SalesReportRange,
@@ -55,23 +56,10 @@ const manilaOrderDate =
 const manilaRange = (column: string) =>
   `${column} >= CONVERT_TZ(:start, '+08:00', @@session.time_zone) AND ${column} < CONVERT_TZ(:end, '+08:00', @@session.time_zone)`
 const dateKey = (date: Date) => date.toISOString().slice(0, 10)
-const manilaDateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  timeZone: "Asia/Manila",
-})
 const databaseDateKey = (value: unknown) => {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return manilaDateKeyFormatter.format(value)
-  }
-  const raw = String(value ?? "")
-  const datePart = raw.match(/\d{4}-\d{2}-\d{2}/)?.[0]
-  if (datePart) return datePart
-  const parsed = new Date(raw)
-  return Number.isNaN(parsed.getTime())
-    ? ""
-    : manilaDateKeyFormatter.format(parsed)
+  return dateOnlyInManila(
+    value instanceof Date ? value : String(value ?? "")
+  )
 }
 const addDays = (value: string, amount: number) => {
   const date = new Date(`${value}T00:00:00.000Z`)

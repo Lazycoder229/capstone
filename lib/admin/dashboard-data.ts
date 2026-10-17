@@ -187,7 +187,9 @@ export async function getAdminDashboardData(
 
   const dailyMap = new Map<string, { revenue: number; orders: number }>(
     dailyRows.map((row: Record<string, unknown>) => [
-      String(row.date).slice(0, 10),
+      dateOnlyInManila(
+        row.date instanceof Date ? row.date : String(row.date ?? "")
+      ),
       { revenue: number(row.revenue), orders: number(row.orders) },
     ])
   )
