@@ -109,7 +109,7 @@ export async function requireStaffPermission(
 export async function requireAdministrator() {
   const staff = await requireStaffPermission("employees:manage", "/admin/login")
   if (!/^(admin|administrator)$/i.test(staff.roleName.trim()))
-    redirect("/admin")
+    redirect("/admin/login")
   return staff
 }
 

@@ -3,9 +3,10 @@
   "name": "Pards PRIME Admin",
   "short_name": "PRIME Admin",
   "description": "Manage restaurant operations from PRIME POS.",
-  "start_url": "/admin/login",
-  "scope": "/admin/",
+  "start_url": "/admin",
+  "scope": "/admin",
   "display": "standalone",
+  "display_override": ["standalone"],
   "background_color": "#ffffff",
   "theme_color": "#ff9900",
   "icons": [
