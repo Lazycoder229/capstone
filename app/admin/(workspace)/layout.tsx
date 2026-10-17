@@ -19,7 +19,11 @@ export default function AdminWorkspaceLayout({
   children: React.ReactNode
 }>) {
   return (
-    <Suspense fallback={<PrimeLoadingScreen title="Loading admin workspace" />}>
+    <Suspense
+      fallback={
+        <PrimeLoadingScreen appKey="admin" title="Loading admin workspace" />
+      }
+    >
       <AuthorizedAdminWorkspace>{children}</AuthorizedAdminWorkspace>
     </Suspense>
   )

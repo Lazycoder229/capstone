@@ -13,7 +13,14 @@ export default function EmployeeWorkspaceLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <Suspense fallback={<PrimeLoadingScreen title="Loading employee workspace" />}>
+    <Suspense
+      fallback={
+        <PrimeLoadingScreen
+          appKey="employee"
+          title="Loading employee workspace"
+        />
+      }
+    >
       <AuthorizedEmployeeWorkspace>{children}</AuthorizedEmployeeWorkspace>
     </Suspense>
   )

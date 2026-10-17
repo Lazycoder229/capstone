@@ -7,7 +7,11 @@ export default function AuthenticatedCustomerLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <Suspense fallback={<PrimeLoadingScreen title="Loading your account" />}>
+    <Suspense
+      fallback={
+        <PrimeLoadingScreen appKey="customer" title="Loading your account" />
+      }
+    >
       <AuthorizedCustomerWorkspace>{children}</AuthorizedCustomerWorkspace>
     </Suspense>
   )

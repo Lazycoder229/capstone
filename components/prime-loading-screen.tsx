@@ -1,12 +1,39 @@
+"use client"
+
+import { useLayoutEffect, useRef, useState } from "react"
+
 type LoadingScreenProps = {
+  appKey: string
   title?: string
   description?: string
 }
 
 export function PrimeLoadingScreen({
+  appKey,
   title = "Loading your workspace",
   description = "Getting everything ready…",
 }: LoadingScreenProps) {
+  const [visible, setVisible] = useState(true)
+  const hasChecked = useRef(false)
+
+  useLayoutEffect(() => {
+    if (hasChecked.current) return
+    hasChecked.current = true
+
+    const storageKey = `prime-loading-screen-seen-${appKey}`
+    try {
+      if (window.localStorage.getItem(storageKey)) {
+        setVisible(false)
+      } else {
+        window.localStorage.setItem(storageKey, "true")
+      }
+    } catch {
+      // Keep the loading screen visible when browser storage is unavailable.
+    }
+  }, [appKey])
+
+  if (!visible) return null
+
   return (
     <main
       className="grid min-h-[calc(100dvh-4rem)] place-items-center px-4 py-8"

@@ -14,7 +14,11 @@ export default function CashierLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <Suspense fallback={<PrimeLoadingScreen title="Loading cashier workspace" />}>
+    <Suspense
+      fallback={
+        <PrimeLoadingScreen appKey="cashier" title="Loading cashier workspace" />
+      }
+    >
       <AuthorizedCashierWorkspace>{children}</AuthorizedCashierWorkspace>
     </Suspense>
   )
