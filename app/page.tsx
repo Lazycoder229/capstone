@@ -91,7 +91,7 @@ export default async function PrimeLanding({
       </header>
 
       {/* Hero */}
-      <section className="relative isolate border-b border-white/10 bg-[radial-gradient(ellipse_at_72%_35%,#49321e_0%,#1b1a14_34%,#0b0d0c_72%)]">
+      <section className="relative isolate border-b border-white/10 bg-[radial-gradient(ellipse_at_72%_35%,#e5d8c5_0%,#f1f0eb_34%,#f7f8f5_72%)]">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 -z-10 [background-image:linear-gradient(#7dd3fc0c_1px,transparent_1px),linear-gradient(90deg,#7dd3fc0c_1px,transparent_1px)] [mask-image:linear-gradient(to_bottom,black,transparent)] [background-size:48px_48px] opacity-30"
@@ -463,7 +463,7 @@ export default async function PrimeLanding({
       {/* CTA */}
       <section
         id="try-ordering"
-        className="border-t border-white/10 bg-[radial-gradient(ellipse_at_70%_50%,#49321e_0%,#10110f_65%)]"
+        className="border-t border-white/10 bg-[radial-gradient(ellipse_at_70%_50%,#e9dfd0_0%,#f5f6f3_65%)]"
       >
         <Scroll3DReveal className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-6 py-16 md:flex-row md:items-center">
           <div>
