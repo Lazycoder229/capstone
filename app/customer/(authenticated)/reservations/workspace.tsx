@@ -150,7 +150,7 @@ export function CustomerReservations({
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-4">
+    <main className="w-full space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">Plan your visit</p>
@@ -251,7 +251,7 @@ export function CustomerReservations({
         })}
         {!visible.length ? (
           <Card size="sm" className="lg:col-span-2">
-            <CardContent className="flex flex-col items-center px-4 py-10 text-center">
+            <CardContent className="flex flex-col items-center px-4 py-6 text-center">
               <CalendarDays className="size-8 text-muted-foreground" />
               <h2 className="mt-3 font-semibold">
                 {filter === "upcoming" ? "No upcoming reservations" : "No reservations here yet"}
