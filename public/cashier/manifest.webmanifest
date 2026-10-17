@@ -4,7 +4,7 @@
   "short_name": "PRIME Cashier",
   "description": "Handle checkout, live orders, and cashier reports.",
   "start_url": "/cashier/login",
-  "scope": "/cashier/",
+  "scope": "/cashier",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ff9900",
