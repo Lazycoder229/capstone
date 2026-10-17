@@ -319,11 +319,11 @@
 
 .restaurant-bot-speech {
   position: absolute;
-  top: calc(100% + 8px);
+  top: -18%;
   left: 0;
   z-index: 2;
   width: max-content;
-  max-width: min(180px, 24vw);
+  max-width: min(150px, 24vw);
   padding: 8px 10px;
   border: 1px solid #c49a3d88;
   border-radius: 14px;

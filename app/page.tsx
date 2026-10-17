@@ -190,48 +190,7 @@ export default async function PrimeLanding({
                 </div>
               </div>
 
-              <div className="hero-float hero-float-delayed absolute right-[1%] bottom-[15%] z-20 w-[56%] rounded-2xl border border-cyan-100/20 bg-[#0a1421]/90 p-4 shadow-[0_25px_80px_#000a] backdrop-blur-xl sm:right-[2%] sm:w-[52%]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
-                    <span className="grid size-7 place-items-center rounded-lg bg-cyan-200/10 text-cyan-200">
-                      <Sparkles className="size-3.5" />
-                    </span>{" "}
-                    Order flow
-                  </div>
-                  <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-1 text-[9px] font-semibold tracking-wider text-emerald-200 uppercase">
-                    Demo
-                  </span>
-                </div>
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-7 place-items-center rounded-full bg-cyan-200/10 text-[10px] font-semibold text-cyan-100">
-                      01
-                    </span>
-                    <div className="h-2 flex-1 rounded-full bg-white/10">
-                      <div className="h-full w-full rounded-full bg-gradient-to-r from-cyan-300 to-sky-400" />
-                    </div>
-                    <span className="text-[10px] text-slate-300">QR</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-7 place-items-center rounded-full bg-sky-300/10 text-[10px] font-semibold text-sky-100">
-                      02
-                    </span>
-                    <div className="h-2 flex-1 rounded-full bg-white/10">
-                      <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-sky-300 to-indigo-400" />
-                    </div>
-                    <span className="text-[10px] text-slate-300">Menu</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-7 place-items-center rounded-full bg-amber-200/10 text-[10px] font-semibold text-amber-100">
-                      03
-                    </span>
-                    <div className="h-2 flex-1 rounded-full bg-white/10">
-                      <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-amber-200 to-orange-300" />
-                    </div>
-                    <span className="text-[10px] text-slate-300">Order</span>
-                  </div>
-                </div>
-              </div>
+              
 
               <div className="hero-float absolute bottom-[16%] left-[2%] z-20 flex items-center gap-3 rounded-2xl border border-white/15 bg-slate-900/90 px-3 py-2.5 shadow-xl backdrop-blur-xl sm:left-[3%]">
                 <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-cyan-200 to-blue-400 text-slate-950">
