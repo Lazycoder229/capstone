@@ -575,6 +575,56 @@ export function LiveOrdersBoard({
       </div>
 
       {visibleOrders.length ? (
+        filter === "history" ? (
+          <div className="overflow-x-auto rounded-lg border bg-background">
+            <table className="w-full min-w-[850px] text-left text-sm">
+              <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Order</th>
+                  <th className="px-4 py-3 font-medium">Customer</th>
+                  <th className="px-4 py-3 font-medium">Type / table</th>
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Items</th>
+                  <th className="px-4 py-3 text-right font-medium">Total</th>
+                  <th className="px-4 py-3 font-medium">Payment</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 text-right font-medium">Receipt</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {visibleOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-muted/20">
+                    <td className="whitespace-nowrap px-4 py-3 font-medium">{order.orderNumber}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{order.customerName || (order.orderType === "qr" ? "QR Guest" : "Walk-in customer")}</p>
+                      {order.customerContact ? <p className="text-xs text-muted-foreground">{order.customerContact}</p> : null}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      {order.orderType === "qr" ? "QR order" : "Counter order"}{order.tableNumber ? ` · Table ${order.tableNumber}` : ""}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{orderTime(order.createdAt)}</td>
+                    <td className="max-w-64 px-4 py-3 text-muted-foreground">
+                      <span className="line-clamp-2">{order.items.map((item) => `${item.quantity}× ${item.name}`).join(", ")}</span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums">{peso(order.total)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      {order.paymentStatus === "pending" ? "Awaiting payment" : order.paymentStatus.replaceAll("_", " ")}
+                      {order.paymentMethod ? ` · ${order.paymentMethod === "qrph" ? "QRPH" : order.paymentMethod.toUpperCase()}` : ""}
+                    </td>
+                    <td className="px-4 py-3"><Badge variant={statusVariant[order.status]}>{statusLabel[order.status]}</Badge></td>
+                    <td className="px-4 py-3 text-right">
+                      {order.paymentStatus === "paid" ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => setReceiptToPrint({ receipt: createReceiptData(order, receiptSettings, order.receiptNumber, order.paidAt ?? order.createdAt), autoPrint: false })}>
+                          <ReceiptText className="mr-1 size-4" />Print
+                        </Button>
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
         <div className="grid items-start gap-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visibleOrders.map((order) => (
             <Card
@@ -786,6 +836,7 @@ export function LiveOrdersBoard({
             </Card>
           ))}
         </div>
+        )
       ) : (
         <Card size="sm">
           <CardContent className="flex min-h-40 flex-col items-center justify-center text-center">
