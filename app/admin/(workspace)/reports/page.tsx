@@ -6,8 +6,11 @@ export default async function ReportsPage({
 }: {
   searchParams?: Promise<{ start?: string; end?: string }>
 }) {
+  // searchParams is request-time data. Keep it outside the data error boundary
+  // so Next can handle its static-generation bailout instead of logging it as
+  // a report/database failure during the build.
+  const params = searchParams ? await searchParams : {}
   try {
-    const params = searchParams ? await searchParams : {}
     const data = await getSalesReportData(params, { includeForecast: true })
     return <SalesReportsWorkspace data={data} />
   } catch (error) {

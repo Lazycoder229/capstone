@@ -1,16 +1,26 @@
 import { AdminSidebar } from "@/components/admin-sidebar"
 import { PrimePosChatbot } from "@/components/prime-pos-chatbot"
 import { Separator } from "@/components/ui/separator"
+import { connection } from "next/server"
+import { requireAdministrator } from "@/lib/staff-auth/session"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-export default function AdminWorkspaceLayout({
+
+export const dynamic = "force-dynamic"
+
+export default async function AdminWorkspaceLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Admin pages show live, database-backed workspace data. Keep them out of
+  // build-time prerendering so database queries run only for real requests.
+  await connection()
+  await requireAdministrator()
+
   return (
     <>
       <SidebarProvider>

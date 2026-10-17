@@ -6,8 +6,8 @@ export default async function SalesPage({
 }: {
   searchParams?: Promise<{ start?: string; end?: string }>
 }) {
+  const params = searchParams ? await searchParams : {}
   try {
-    const params = searchParams ? await searchParams : {}
     const data = await getSalesReportData(params, { includeForecast: true })
     return (
       <SalesReportsWorkspace
