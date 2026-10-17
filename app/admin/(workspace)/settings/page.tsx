@@ -9,6 +9,7 @@ import {
 import { getInitializedDataSource } from "@/lib/database/data-source"
 import { Branch } from "@/lib/database/entities/entities/Branch"
 import { SystemSetting } from "@/lib/database/entities/entities/SystemSetting"
+import { LoyaltySetting } from "@/lib/database/entities/entities/LoyaltySetting"
 import { SettingsForm } from "./settings-form"
 import type { BranchSummary, SystemSettingsFormValues } from "./types"
 
@@ -30,6 +31,8 @@ const defaults: SystemSettingsFormValues = {
   serviceChargeEnabled: false,
   serviceChargeRate: 5,
   seniorPwdDiscountEnabled: true,
+  pointsPerTier: 5,
+  pesoValuePerPoint: 0.25,
   paymentCashEnabled: true,
   paymentGcashEnabled: true,
   paymentMayaEnabled: true,
@@ -95,7 +98,7 @@ function collapseRepeatedAddressLines(address: string) {
 async function loadSettings() {
   try {
     const dataSource = await getInitializedDataSource()
-    const [record, branches] = await Promise.all([
+    const [record, branches, loyaltySettings] = await Promise.all([
       dataSource
         .getRepository(SystemSetting)
         .createQueryBuilder("settings")
@@ -107,7 +110,13 @@ async function loadSettings() {
       dataSource
         .getRepository(Branch)
         .find({ order: { isMain: "DESC", name: "ASC" } }),
+      dataSource.getRepository(LoyaltySetting).findOne({ where: {} }),
     ])
+    const loadedDefaults: SystemSettingsFormValues = {
+      ...defaults,
+      pointsPerTier: Number(loyaltySettings?.pointsPerTier ?? defaults.pointsPerTier),
+      pesoValuePerPoint: Number(loyaltySettings?.pesoValuePerPoint ?? defaults.pesoValuePerPoint),
+    }
     const branchSummaries: BranchSummary[] = branches.map(
       ({
         id,
@@ -133,7 +142,7 @@ async function loadSettings() {
     )
     if (!record)
       return {
-        values: useMainBranchValues(defaults, branchSummaries),
+        values: useMainBranchValues(loadedDefaults, branchSummaries),
         unavailable: false,
         configMissing: false,
         hasGcashQr: false,
@@ -155,7 +164,7 @@ async function loadSettings() {
     return {
       values: useMainBranchValues(
         {
-          ...defaults,
+          ...loadedDefaults,
           ...values,
           address: collapseRepeatedAddressLines(values.address),
         },
@@ -209,7 +218,7 @@ export default async function SettingsPage() {
             System Settings
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage restaurant, tax, order, and receipt preferences.
+            Manage restaurant, tax, order, receipt, and loyalty preferences.
           </p>
         </div>
       </div>

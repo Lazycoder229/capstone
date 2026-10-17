@@ -19,12 +19,12 @@ export function CustomerManagement({
   customers,
   rewards,
   transactions,
-  pointsPerPeso,
+  pointsPerTier,
 }: {
   customers: CustomerRow[]
   rewards: RewardRow[]
   transactions: LoyaltyTransactionRow[]
-  pointsPerPeso: number
+  pointsPerTier: number
 }) {
   const [tab, setTab] = useState<Tab>("customers")
   const [query, setQuery] = useState("")
@@ -105,8 +105,9 @@ export function CustomerManagement({
           </h1>
           <p className="text-sm text-muted-foreground">
             View customer profiles, manage the reward catalog, and process
-            redemptions. Paid orders earn {pointsPerPeso} point
-            {pointsPerPeso === 1 ? "" : "s"} per ₱1 after completion.
+            redemptions. Paid orders earn {pointsPerTier} points at ₱100,
+            {pointsPerTier * 2} at ₱200, {pointsPerTier * 3} at ₱400, then
+            add {pointsPerTier} points for every additional ₱200 after completion.
           </p>
         </div>
         {tab === "rewards" ? (

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { getInitializedDataSource } from "@/lib/database/data-source"
 import { Branch } from "@/lib/database/entities/entities/Branch"
 import { SystemSetting } from "@/lib/database/entities/entities/SystemSetting"
+import { LoyaltySetting } from "@/lib/database/entities/entities/LoyaltySetting"
 import { systemSettingsSchema } from "@/lib/validations/system-settings"
 import type { SettingsActionState } from "./types"
 
@@ -41,6 +42,8 @@ export async function saveSystemSettings(
       formData,
       "seniorPwdDiscountEnabled"
     ),
+    pointsPerTier: textValue(formData, "pointsPerTier"),
+    pesoValuePerPoint: textValue(formData, "pesoValuePerPoint"),
     paymentCashEnabled: checkboxValue(formData, "paymentCashEnabled"),
     paymentGcashEnabled: checkboxValue(formData, "paymentGcashEnabled"),
     paymentMayaEnabled: checkboxValue(formData, "paymentMayaEnabled"),
@@ -119,6 +122,8 @@ export async function saveSystemSettings(
         mayaQrImage,
         qrphQrImage,
         wifiPassword,
+        pointsPerTier,
+        pesoValuePerPoint,
         ...settings
       } = parsed.data
       const settingsRepository = manager.getRepository(SystemSetting)
@@ -166,6 +171,18 @@ export async function saveSystemSettings(
       }
       await settingsRepository.save(setting)
 
+      const loyaltyRepository = manager.getRepository(LoyaltySetting)
+      const currentLoyaltySettings = await loyaltyRepository.findOne({
+        where: {},
+      })
+      const loyaltySetting =
+        currentLoyaltySettings ??
+        loyaltyRepository.create({ id: randomUUID() })
+      loyaltySetting.pointsPerTier = pointsPerTier
+      loyaltySetting.pesoValuePerPoint = pesoValuePerPoint
+      loyaltySetting.updatedAt = new Date()
+      await loyaltyRepository.save(loyaltySetting)
+
       if (branchId) {
         const branchRepository = manager.getRepository(Branch)
         const branch = await branchRepository.findOneBy({ id: branchId })
@@ -184,6 +201,7 @@ export async function saveSystemSettings(
 
     revalidatePath("/admin/settings")
     revalidatePath("/admin/orders")
+    revalidatePath("/admin/loyalty")
     return { status: "success", message: "System settings saved." }
   } catch (error) {
     console.error("Unable to save system settings:", error)

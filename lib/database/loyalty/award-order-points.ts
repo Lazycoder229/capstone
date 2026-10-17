@@ -14,8 +14,12 @@ export async function awardOrderLoyaltyPoints(
   const settings = await manager.getRepository(LoyaltySetting).findOne({
     where: {},
   })
-  const rate = Number(settings?.pointsPerPeso ?? 1)
-  const points = Math.floor(Number(order.total) * rate)
+  const pointsPerTier = Math.max(0, Math.floor(Number(settings?.pointsPerTier ?? 5)))
+  const total = Number(order.total)
+  const points =
+    total < 100
+      ? 0
+      : pointsPerTier * (total < 200 ? 1 : 2 + Math.floor((total - 200) / 200))
   if (!Number.isFinite(points) || points <= 0) return 0
 
   const customers = manager.getRepository(Customer)

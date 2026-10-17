@@ -46,6 +46,8 @@ export const systemSettingsSchema = z
     serviceChargeEnabled: z.boolean(),
     serviceChargeRate: z.coerce.number().min(0).max(100),
     seniorPwdDiscountEnabled: z.boolean(),
+    pointsPerTier: z.coerce.number().int().min(0).max(99_999),
+    pesoValuePerPoint: z.coerce.number().min(0).max(999.99),
     paymentCashEnabled: z.boolean(),
     paymentGcashEnabled: z.boolean(),
     paymentMayaEnabled: z.boolean(),

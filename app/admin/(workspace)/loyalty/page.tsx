@@ -88,7 +88,7 @@ export default async function CustomerManagementPage() {
         customers={customerRows}
         rewards={rewardRows}
         transactions={transactionRows}
-        pointsPerPeso={Number(loyaltySettings?.pointsPerPeso ?? 1)}
+        pointsPerTier={Number(loyaltySettings?.pointsPerTier ?? 5)}
       />
     )
   } catch (error) {

@@ -7,22 +7,15 @@ export class LoyaltySetting {
   @PrimaryColumn({ type: "char", length: 36 })
   id!: string
 
-  @Column({
-    name: "points_per_peso",
-    type: "decimal",
-    precision: 5,
-    scale: 2,
-    default: 1,
-    transformer: decimal,
-  })
-  pointsPerPeso!: number
+  @Column({ name: "points_per_tier", type: "int", default: 5 })
+  pointsPerTier!: number
 
   @Column({
     name: "peso_value_per_point",
     type: "decimal",
     precision: 5,
     scale: 2,
-    default: 0.5,
+    default: 0.25,
     transformer: decimal,
   })
   pesoValuePerPoint!: number

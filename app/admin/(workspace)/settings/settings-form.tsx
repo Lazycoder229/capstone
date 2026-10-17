@@ -6,6 +6,7 @@ import {
   Clock3,
   CreditCard,
   Eye,
+  Award,
   ReceiptText,
   Save,
   Store,
@@ -26,6 +27,7 @@ const controlClass =
 const settingTabs = [
   { id: "general", label: "General", icon: Building2 },
   { id: "taxes", label: "Taxes", icon: Tags },
+  { id: "loyalty", label: "Points & Loyalty", icon: Award },
   { id: "orders", label: "Orders", icon: Clock3 },
   { id: "receipt", label: "Receipt & Wi-Fi", icon: ReceiptText },
   { id: "payments", label: "Payments", icon: CreditCard },
@@ -49,6 +51,8 @@ const fieldTab: Record<string, (typeof settingTabs)[number]["id"]> = {
   serviceChargeEnabled: "taxes",
   serviceChargeRate: "taxes",
   seniorPwdDiscountEnabled: "taxes",
+  pointsPerTier: "loyalty",
+  pesoValuePerPoint: "loyalty",
   orderNumberPrefix: "orders",
   openingTime: "orders",
   closingTime: "orders",
@@ -606,6 +610,39 @@ export function SettingsForm({
                 label="Require opening cash balance"
                 description="Enter drawer balance at shift start."
                 checked={initialValues.cashDrawerOpeningBalanceRequired}
+              />
+            </div>
+          </Section>
+        </div>
+
+        <div hidden={activeTab !== "loyalty"}>
+          <Section
+            compact
+            title="Points system"
+            description="Set how customers earn points on completed, paid orders and the reference cash value of each point."
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field
+                name="pointsPerTier"
+                label="Points per spending tier"
+                value={initialValues.pointsPerTier}
+                type="number"
+                min={0}
+                max={99_999}
+                step={1}
+                hint="Set to 0 to disable earning. With 5: ₱100 earns 5 pts, ₱200 earns 10, then each additional ₱200 adds 5 pts."
+                error={errorFor("pointsPerTier")}
+              />
+              <Field
+                name="pesoValuePerPoint"
+                label="Peso value per point (₱)"
+                value={initialValues.pesoValuePerPoint}
+                type="number"
+                min={0}
+                max={999.99}
+                step={0.01}
+                hint="Reference value for reward planning; reward point costs are still configured per reward."
+                error={errorFor("pesoValuePerPoint")}
               />
             </div>
           </Section>
