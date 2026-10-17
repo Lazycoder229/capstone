@@ -152,7 +152,9 @@ export function LiveOrdersBoard({
   basePath?: "/admin" | "/cashier"
 }) {
   const router = useRouter()
-  const [filter, setFilter] = useState<Filter>("active")
+  const [filter, setFilter] = useState<Filter>(
+    basePath === "/cashier" ? "pending" : "active"
+  )
   const [searchQuery, setSearchQuery] = useState("")
   const [createOpen, setCreateOpen] = useState(false)
   const [draftLines, setDraftLines] = useState<DraftLine[]>([])
@@ -195,6 +197,10 @@ export function LiveOrdersBoard({
   const preparingCount = orders.filter(
     (order) => order.status === "preparing"
   ).length
+  const visibleFilters =
+    basePath === "/cashier"
+      ? filters.filter((item) => !["active", "all"].includes(item.id))
+      : filters
 
   useEffect(() => {
     const timer = window.setInterval(() => router.refresh(), 20_000)
@@ -478,7 +484,7 @@ export function LiveOrdersBoard({
           aria-label="Filter orders"
           className="flex min-w-0 gap-1 overflow-x-auto"
         >
-          {filters.map((item) => {
+          {visibleFilters.map((item) => {
             const count =
               item.id === "active"
                 ? activeCount
