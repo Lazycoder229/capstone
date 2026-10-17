@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   CircleUserRound,
+  CalendarDays,
   ChevronUp,
   ClipboardList,
   Gift,
@@ -44,6 +45,7 @@ const groups = [
     items: [
       { title: "Order kiosk", url: "/customer/kiosk", icon: ShoppingBag },
       { title: "Order history", url: "/customer/orders", icon: ClipboardList },
+      { title: "Reservations", url: "/customer/reservations", icon: CalendarDays },
     ],
   },
   {
