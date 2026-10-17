@@ -322,12 +322,37 @@
 .restaurant-landing [class*="text-cyan-"],
 .restaurant-landing [class*="text-sky-"],
 .restaurant-landing [class*="text-amber-"] {
-  color: #397873 !important;
+  color: #9a6b0c !important;
+}
+
+.restaurant-landing [class~="bg-cyan-100"],
+.restaurant-landing [class~="bg-cyan-200"],
+.restaurant-landing [class~="bg-cyan-300"],
+.restaurant-landing [class~="bg-sky-300"],
+.restaurant-landing [class~="bg-blue-400"] {
+  background-color: #e6c56e !important;
+}
+
+.restaurant-landing [class*="from-cyan-"],
+.restaurant-landing [class*="from-sky-"],
+.restaurant-landing [class*="from-blue-"] {
+  --tw-gradient-from: #b88418 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(184 132 24 / 0%) var(--tw-gradient-to-position) !important;
+}
+
+.restaurant-landing [class*="to-sky-"],
+.restaurant-landing [class*="to-blue-"],
+.restaurant-landing [class*="to-indigo-"] {
+  --tw-gradient-to: #f0d98b var(--tw-gradient-to-position) !important;
+}
+
+.restaurant-landing [class*="via-sky-"] {
+  --tw-gradient-via: #e0b84f var(--tw-gradient-via-position) !important;
 }
 
 .restaurant-landing [class*="border-white/"],
 .restaurant-landing [class*="border-cyan-"] {
-  border-color: #52645a26 !important;
+  border-color: #c29a3d55 !important;
 }
 
 .restaurant-landing [class*="bg-white/["],
@@ -348,7 +373,7 @@
 
 .restaurant-landing .hero-stage > div[class*="bg-[#0a1421]"] [class*="text-cyan-"],
 .restaurant-landing .hero-stage > div[class*="bg-slate-900"] [class*="text-cyan-"] {
-  color: #357a78 !important;
+  color: #9a6b0c !important;
 }
 
 @media (max-width: 640px) {

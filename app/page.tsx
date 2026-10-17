@@ -94,7 +94,7 @@ export default async function PrimeLanding({
       <section className="relative isolate border-b border-white/10 bg-[radial-gradient(ellipse_at_72%_35%,#e5d8c5_0%,#f1f0eb_34%,#f7f8f5_72%)]">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 [background-image:linear-gradient(#7dd3fc0c_1px,transparent_1px),linear-gradient(90deg,#7dd3fc0c_1px,transparent_1px)] [mask-image:linear-gradient(to_bottom,black,transparent)] [background-size:48px_48px] opacity-30"
+          className="pointer-events-none absolute inset-0 -z-10 [background-image:linear-gradient(#c79b3b18_1px,transparent_1px),linear-gradient(90deg,#c79b3b18_1px,transparent_1px)] [mask-image:linear-gradient(to_bottom,black,transparent)] [background-size:48px_48px] opacity-30"
         />
         <div className="mx-auto grid min-h-[690px] max-w-7xl items-center gap-10 px-5 py-16 sm:px-8 md:grid-cols-[0.9fr_1.1fr] md:gap-4 md:py-20 lg:px-12">
           <div className="relative z-10 max-w-xl">
@@ -110,7 +110,7 @@ export default async function PrimeLanding({
               <br />
               to serve<span className="text-cyan-300">.</span>
               <br />
-              <span className="bg-gradient-to-r from-cyan-200 via-sky-300 to-amber-200 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#b88418] via-[#e0b84f] to-[#f0d98b] bg-clip-text text-transparent">
                 Built around PRIME.
               </span>
             </h1>
