@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import QRCode from "qrcode"
@@ -29,12 +29,13 @@ import {
   type ReceiptTemplateSettings,
 } from "@/components/receipt/receipt-template"
 
-type Filter = "active" | "pending" | "preparing" | "ready" | "history" | "all"
+type Filter = "active" | "pending" | "preparing" | "ready" | "served" | "history" | "all"
 const filters: { id: Filter; label: string }[] = [
   { id: "active", label: "Active" },
   { id: "pending", label: "New" },
   { id: "preparing", label: "Preparing" },
   { id: "ready", label: "Ready" },
+  { id: "served", label: "Served" },
   { id: "history", label: "History" },
   { id: "all", label: "All orders" },
 ]
@@ -71,7 +72,7 @@ const orderTime = (value: string) =>
 function matches(order: LiveOrder, filter: Filter) {
   if (filter === "active")
     return ["pending", "preparing", "ready", "served"].includes(order.status)
-  if (filter === "pending" || filter === "preparing" || filter === "ready")
+  if (filter === "pending" || filter === "preparing" || filter === "ready" || filter === "served")
     return order.status === filter
   if (filter === "history")
     return ["completed", "cancelled"].includes(order.status)
@@ -172,6 +173,7 @@ export function LiveOrdersBoard({
   )
   const [customerPaymentLinkToken, setCustomerPaymentLinkToken] = useState("")
   const [customerPaymentQr, setCustomerPaymentQr] = useState("")
+  const [refreshPending, startRefresh] = useTransition()
   const [paymentMethod, setPaymentMethod] = useState(
     paymentMethods[0]?.id ?? ""
   )
@@ -212,15 +214,12 @@ export function LiveOrdersBoard({
   const preparingCount = displayOrders.filter(
     (order) => order.status === "preparing"
   ).length
+  const readyCount = displayOrders.filter((order) => order.status === "ready").length
+  const servedCount = displayOrders.filter((order) => order.status === "served").length
   const visibleFilters =
     basePath === "/cashier"
       ? filters.filter((item) => !["active", "all"].includes(item.id))
       : filters
-
-  useEffect(() => {
-    const timer = window.setInterval(() => router.refresh(), 20_000)
-    return () => window.clearInterval(timer)
-  }, [router])
 
   useEffect(() => {
     setOptimisticStatuses((current) => {
@@ -500,10 +499,10 @@ export function LiveOrdersBoard({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="size-2 animate-pulse rounded-full bg-emerald-500" />
-            Auto-refresh every 20 seconds
-          </p>
+          <Button type="button" variant="outline" size="sm" disabled={refreshPending} onClick={() => startRefresh(() => router.refresh())}>
+            <RefreshCw className={`mr-1 size-4 ${refreshPending ? "animate-spin" : ""}`} />
+            {refreshPending ? "Refreshing…" : "Refresh"}
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -536,13 +535,19 @@ export function LiveOrdersBoard({
         >
           {visibleFilters.map((item) => {
             const count =
-              item.id === "active"
-                ? activeCount
-                : item.id === "pending"
-                  ? newCount
-                  : item.id === "preparing"
-                    ? preparingCount
-                    : undefined
+              item.id === "history"
+                ? undefined
+                : item.id === "active"
+                  ? activeCount
+                  : item.id === "pending"
+                    ? newCount
+                    : item.id === "preparing"
+                      ? preparingCount
+                      : item.id === "ready"
+                        ? readyCount
+                        : item.id === "served"
+                          ? servedCount
+                          : displayOrders.length
             return (
               <button
                 key={item.id}

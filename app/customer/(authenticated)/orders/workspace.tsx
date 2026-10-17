@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
-import { Bell, ChefHat, CircleCheck, CircleX, Clock3, FileText, Utensils, X } from "lucide-react"
+import { Bell, ChefHat, CircleCheck, CircleX, Clock3, FileText, RefreshCw, Utensils, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -50,10 +51,12 @@ const money = (value: number) =>
   )
 
 export function CustomerOrders({ orders }: { orders: OrderRow[] }) {
+  const router = useRouter()
   const [cancelOrder, setCancelOrder] = useState<OrderRow | null>(null)
   const [reason, setReason] = useState("")
   const [message, setMessage] = useState("")
   const [pending, startTransition] = useTransition()
+  const [refreshPending, startRefresh] = useTransition()
   const [receiptOrder, setReceiptOrder] = useState<OrderRow | null>(null)
   const [receipt, setReceipt] = useState<DigitalReceipt | null>(null)
   const [receiptLoading, setReceiptLoading] = useState(false)
@@ -109,13 +112,19 @@ export function CustomerOrders({ orders }: { orders: OrderRow[] }) {
 
   return (
     <main className="space-y-5">
-      <header className="print:hidden">
-        <p className="text-sm text-muted-foreground">Your account</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Order history</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Track orders, submit payment references, request eligible
-          cancellations, and open digital receipts.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3 print:hidden">
+        <div>
+          <p className="text-sm text-muted-foreground">Your account</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Order history</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Track orders, submit payment references, request eligible
+            cancellations, and open digital receipts.
+          </p>
+        </div>
+        <Button type="button" variant="outline" size="sm" disabled={refreshPending} onClick={() => startRefresh(() => router.refresh())}>
+          <RefreshCw className={`mr-1 size-4 ${refreshPending ? "animate-spin" : ""}`} />
+          {refreshPending ? "Refreshing…" : "Refresh"}
+        </Button>
       </header>
       {orders.length ? (
         <>

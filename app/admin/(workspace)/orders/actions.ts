@@ -45,6 +45,7 @@ const transitions: Record<OrderStatus, readonly OrderStatus[]> = {
 
 function revalidateOrders() {
   revalidatePath("/admin/orders")
+  revalidatePath("/cashier/orders")
   revalidatePath("/admin/inventory")
   revalidatePath("/admin/tables")
   revalidatePath("/admin")
