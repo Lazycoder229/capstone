@@ -33,9 +33,9 @@ export function ServiceJourneyScene() {
   return (
     <div
       ref={sceneRef}
-      className="service-scene relative isolate mx-auto mt-12 h-[360px] max-w-6xl overflow-hidden rounded-[2rem] border border-cyan-100/15 bg-[#091725] sm:h-[430px]"
+      className="service-scene relative isolate mx-auto mt-12 h-[360px] max-w-6xl overflow-hidden rounded-[2rem] border border-amber-100/15 bg-[#15130f] sm:h-[430px]"
       role="img"
-      aria-label="Animated restaurant scene: a service robot carries a freshly prepared order from the kitchen to the dining tables."
+      aria-label="Restaurant kitchen pass, freshly prepared food, and a dining room with tables."
     >
       <div aria-hidden className="service-scene-glow" />
       <div aria-hidden className="service-scene-window-grid" />
@@ -92,33 +92,6 @@ export function ServiceJourneyScene() {
           <strong>Order ready</strong>
           <small>Fresh from the kitchen</small>
         </span>
-      </div>
-
-      <div aria-hidden className="service-bot">
-        <span className="service-bot-shadow" />
-        <span className="service-bot-antenna" />
-        <span className="service-bot-head">
-          <i />
-          <i />
-          <b />
-        </span>
-        <span className="service-bot-neck" />
-        <span className="service-bot-body">
-          <i className="service-bot-panel" />
-          <i className="service-bot-arm service-bot-arm-left" />
-          <i className="service-bot-arm service-bot-arm-right" />
-        </span>
-        <span className="service-bot-tray">
-          <i />
-          <i />
-          <i />
-        </span>
-        <span className="service-bot-base">
-          <i />
-          <i />
-        </span>
-        <span className="service-bot-wheel service-bot-wheel-left" />
-        <span className="service-bot-wheel service-bot-wheel-right" />
       </div>
 
       <div aria-hidden className="service-scene-caption">

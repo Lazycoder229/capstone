@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Scroll3DReveal } from "@/components/scroll-3d-reveal"
 import { ServiceJourneyScene } from "@/components/service-journey-scene"
+import { RestaurantScrollBot } from "@/components/restaurant-scroll-bot"
 import {
   Accordion,
   AccordionContent,
@@ -45,11 +46,12 @@ export default async function PrimeLanding({
   }
   return (
     <div
-      className={`${fraunces.variable} ${manrope.variable} min-h-screen overflow-x-clip bg-[#070B12] text-[#EAF2FF]`}
+      className={`${fraunces.variable} ${manrope.variable} restaurant-landing relative min-h-screen overflow-x-clip bg-[#0c0d0c] text-[#EAF2FF]`}
       style={{ fontFamily: "var(--font-body)" }}
     >
+      <RestaurantScrollBot />
       {/* Nav */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#070B12]/85 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#11110f]/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <span
             className="text-xl tracking-[0.24em] text-white"
@@ -90,7 +92,7 @@ export default async function PrimeLanding({
       </header>
 
       {/* Hero */}
-      <section className="relative isolate border-b border-white/10 bg-[radial-gradient(ellipse_at_72%_35%,#12334a_0%,#0b1624_34%,#070b12_72%)]">
+      <section className="relative isolate border-b border-white/10 bg-[radial-gradient(ellipse_at_72%_35%,#49321e_0%,#1b1a14_34%,#0b0d0c_72%)]">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 -z-10 [background-image:linear-gradient(#7dd3fc0c_1px,transparent_1px),linear-gradient(90deg,#7dd3fc0c_1px,transparent_1px)] [mask-image:linear-gradient(to_bottom,black,transparent)] [background-size:48px_48px] opacity-30"
@@ -254,8 +256,8 @@ export default async function PrimeLanding({
         </div>
       </section>
 
-      {/* Animated kitchen-to-table story */}
-      <section className="border-b border-white/10 bg-[#080F18] px-5 py-20 sm:px-8 lg:px-12">
+      {/* Kitchen and dining-room atmosphere */}
+      <section className="border-b border-white/10 bg-[#100f0c] px-5 py-20 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-6xl">
           <Scroll3DReveal direction="center">
             <div className="mx-auto max-w-2xl text-center">
@@ -270,8 +272,8 @@ export default async function PrimeLanding({
                 <span className="text-cyan-300"> to your table.</span>
               </h2>
               <p className="mt-4 text-sm leading-6 text-slate-400 sm:text-base">
-                Orders move from preparation to the dining room in one clear,
-                connected flow.
+                From the kitchen pass to a table full of guests, every order
+                keeps moving with the team.
               </p>
             </div>
           </Scroll3DReveal>
@@ -282,7 +284,7 @@ export default async function PrimeLanding({
       </section>
 
       {/* Problem / solution */}
-      <section className="border-t border-white/10 bg-[#090F19]">
+      <section className="border-t border-white/10 bg-[#14130f]">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <h2
             className="mb-14 border-b border-white/10 pb-4 text-3xl text-white"
@@ -321,7 +323,7 @@ export default async function PrimeLanding({
       </section>
 
       {/* Feature groups */}
-      <section id="features" className="border-t border-white/10 bg-[#070B12]">
+      <section id="features" className="border-t border-white/10 bg-[#0d0f0e]">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="mb-14 flex items-end justify-between border-b border-white/10 pb-4">
             <h2
@@ -403,7 +405,7 @@ export default async function PrimeLanding({
       </section>
 
       {/* Under the hood */}
-      <section className="border-t border-white/10 bg-[#090F19]">
+      <section className="border-t border-white/10 bg-[#14130f]">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <h2
             className="mb-14 border-b border-white/10 pb-4 text-3xl text-white"
@@ -467,7 +469,7 @@ export default async function PrimeLanding({
       </section>
 
       {/* About the project */}
-      <section className="border-t border-white/10 bg-[#070B12]">
+      <section className="border-t border-white/10 bg-[#0d0f0e]">
         <Scroll3DReveal className="mx-auto max-w-3xl px-6 py-20 text-center">
           <Badge className="mb-6 border border-white/10 bg-white/5 text-cyan-100 hover:bg-white/5">
             <GraduationCap className="mr-1.5 h-3.5 w-3.5" />
@@ -489,7 +491,7 @@ export default async function PrimeLanding({
       {/* CTA */}
       <section
         id="try-ordering"
-        className="border-t border-white/10 bg-[radial-gradient(ellipse_at_70%_50%,#12334a_0%,#080d15_65%)]"
+        className="border-t border-white/10 bg-[radial-gradient(ellipse_at_70%_50%,#49321e_0%,#10110f_65%)]"
       >
         <Scroll3DReveal className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-6 py-16 md:flex-row md:items-center">
           <div>
@@ -517,7 +519,7 @@ export default async function PrimeLanding({
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 bg-[#070B12]">
+      <footer className="border-t border-white/10 bg-[#0d0f0e]">
         <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 md:grid-cols-[2fr_1fr_1fr]">
           <div>
             <span
