@@ -11,6 +11,7 @@ import {
   Minus,
   Plus,
   RefreshCw,
+  ReceiptText,
   Search,
   Utensils,
   X,
@@ -22,6 +23,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useOrders } from "./hooks/use-orders"
 import type { CustomerOption, LiveOrder } from "./types"
 import type { OrderStatus } from "@/lib/database/entities/entities/enums"
+import {
+  ReceiptTemplate,
+  type ReceiptData,
+  type ReceiptTemplateSettings,
+} from "@/components/receipt/receipt-template"
 
 type Filter = "active" | "pending" | "preparing" | "ready" | "history" | "all"
 const filters: { id: Filter; label: string }[] = [
@@ -110,6 +116,7 @@ type PricingOptions = {
   serviceChargeEnabled: boolean
   serviceChargeRate: number
 }
+type ReceiptToPrint = { receipt: ReceiptData; autoPrint: boolean }
 
 export function LiveOrdersBoard({
   orders,
@@ -122,6 +129,8 @@ export function LiveOrdersBoard({
   discountOptions,
   promotionOptions,
   pricing,
+  receiptSettings,
+  printReceiptAuto,
   basePath = "/admin",
 }: {
   orders: LiveOrder[]
@@ -138,6 +147,8 @@ export function LiveOrdersBoard({
   discountOptions: DiscountOption[]
   promotionOptions: PromotionOption[]
   pricing: PricingOptions
+  receiptSettings: ReceiptTemplateSettings
+  printReceiptAuto: boolean
   basePath?: "/admin" | "/cashier"
 }) {
   const router = useRouter()
@@ -154,6 +165,9 @@ export function LiveOrdersBoard({
     useState<PaymentConfirmationDraft | null>(null)
   const [paymentReferenceNumber, setPaymentReferenceNumber] = useState("")
   const [paymentReferenceError, setPaymentReferenceError] = useState("")
+  const [receiptToPrint, setReceiptToPrint] = useState<ReceiptToPrint | null>(
+    null
+  )
   const [customerPaymentLinkToken, setCustomerPaymentLinkToken] = useState("")
   const [customerPaymentQr, setCustomerPaymentQr] = useState("")
   const [paymentMethod, setPaymentMethod] = useState(
@@ -186,6 +200,20 @@ export function LiveOrdersBoard({
     const timer = window.setInterval(() => router.refresh(), 20_000)
     return () => window.clearInterval(timer)
   }, [router])
+
+  useEffect(() => {
+    if (!receiptToPrint) {
+      document.body.classList.remove("live-order-printing")
+      return
+    }
+    document.body.classList.add("live-order-printing")
+    if (!receiptToPrint.autoPrint) return
+    const timer = window.setTimeout(() => window.print(), 250)
+    return () => {
+      window.clearTimeout(timer)
+      document.body.classList.remove("live-order-printing")
+    }
+  }, [receiptToPrint])
 
   useEffect(() => {
     if (!customerPaymentLinkToken) {
@@ -272,13 +300,27 @@ export function LiveOrdersBoard({
       return
     }
     setPaymentReferenceError("")
-    const markedPaid = await markPaymentReceived(
+    const paymentResult = await markPaymentReceived(
       paymentConfirmationDraft.orderId,
       referenceNumber
     )
-    if (markedPaid) {
+    if (paymentResult.ok) {
+      const paidOrder = orders.find(
+        (order) => order.id === paymentConfirmationDraft.orderId
+      )
       setPaymentConfirmationDraft(null)
       setPaymentReferenceNumber("")
+      if (paidOrder) {
+        setReceiptToPrint({
+          receipt: createReceiptData(
+            paidOrder,
+            receiptSettings,
+            paymentResult.receiptNumber ?? paidOrder.receiptNumber,
+            paymentResult.paidAt ?? new Date().toISOString()
+          ),
+          autoPrint: printReceiptAuto,
+        })
+      }
     }
   }
 
@@ -592,6 +634,27 @@ export function LiveOrdersBoard({
                         }}
                       >
                         Mark paid
+                      </Button>
+                    ) : null}
+                    {order.paymentStatus === "paid" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setReceiptToPrint({
+                            receipt: createReceiptData(
+                              order,
+                              receiptSettings,
+                              order.receiptNumber,
+                              order.paidAt ?? order.createdAt
+                            ),
+                            autoPrint: false,
+                          })
+                        }
+                      >
+                        <ReceiptText className="mr-1 size-4" />
+                        Print receipt
                       </Button>
                     ) : null}
                     {["pending", "preparing", "ready"].includes(
@@ -1211,6 +1274,55 @@ export function LiveOrdersBoard({
           </section>
         </div>
       ) : null}
+      {receiptToPrint ? (
+        <div className="fixed inset-0 z-[120] grid place-items-center overflow-y-auto bg-black/60 p-3 print:block print:overflow-visible print:bg-white print:p-0">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="live-order-receipt-title"
+            className="w-full max-w-md rounded-xl border bg-background p-4 shadow-2xl print:max-w-none print:rounded-none print:border-0 print:bg-white print:p-0 print:shadow-none"
+          >
+            <header className="mb-3 flex items-center justify-between gap-3 print:hidden">
+              <div>
+                <h2 id="live-order-receipt-title" className="font-semibold">
+                  Customer receipt
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {receiptToPrint.receipt.receiptNumber}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setReceiptToPrint(null)}
+              >
+                Close
+              </Button>
+            </header>
+            <div className="live-order-print mx-auto max-h-[65dvh] overflow-y-auto rounded-lg border bg-white sm:max-h-[72dvh] print:max-h-none print:overflow-visible print:rounded-none print:border-0">
+              <ReceiptTemplate
+                settings={receiptSettings}
+                receipt={receiptToPrint.receipt}
+              />
+            </div>
+            <footer className="mt-3 flex justify-end gap-2 print:hidden">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setReceiptToPrint(null)}
+              >
+                Done
+              </Button>
+              <Button type="button" onClick={() => window.print()}>
+                <ReceiptText className="mr-1 size-4" />
+                Print receipt
+              </Button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
       {paymentConfirmationDraft ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
           <section
@@ -1335,6 +1447,40 @@ export function LiveOrdersBoard({
       ) : null}
     </main>
   )
+}
+
+function createReceiptData(
+  order: LiveOrder,
+  settings: ReceiptTemplateSettings,
+  receiptNumber: string | null | undefined,
+  paidAt: string
+): ReceiptData {
+  const taxableSubtotal = Math.max(0, order.subtotal - order.discount)
+  const serviceCharge = Math.max(
+    0,
+    order.total -
+      taxableSubtotal -
+      (settings.vatEnabled && !settings.vatInclusive ? order.tax : 0)
+  )
+
+  return {
+    receiptNumber: receiptNumber ?? order.orderNumber,
+    date: new Date(paidAt),
+    items: order.items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+    })),
+    paymentMethod: order.paymentMethod ?? "Paid",
+    cashier: "PRIME POS",
+    totals: {
+      subtotal: order.subtotal,
+      discount: order.discount,
+      tax: order.tax,
+      serviceCharge,
+      total: order.total,
+    },
+  }
 }
 
 function Summary({

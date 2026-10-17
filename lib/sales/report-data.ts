@@ -48,6 +48,12 @@ export type SalesReportData = {
 }
 
 const num = (value: unknown) => Number(value ?? 0) || 0
+// Interpret report dates as Manila calendar days even when MySQL's session
+// timezone is UTC (or follows the database host's local timezone).
+const manilaOrderDate =
+  "CONVERT_TZ(order.createdAt, @@session.time_zone, '+08:00')"
+const manilaRange = (column: string) =>
+  `${column} >= CONVERT_TZ(:start, '+08:00', @@session.time_zone) AND ${column} < CONVERT_TZ(:end, '+08:00', @@session.time_zone)`
 const dateKey = (date: Date) => date.toISOString().slice(0, 10)
 const addDays = (value: string, amount: number) => {
   const date = new Date(`${value}T00:00:00.000Z`)
@@ -102,15 +108,15 @@ export async function getSalesForecastHistory(
   const repository = (await getInitializedDataSource()).getRepository(Order)
   const rows = await repository
     .createQueryBuilder("order")
-    .select("DATE(order.createdAt)", "date")
+    .select(`DATE(${manilaOrderDate})`, "date")
     .addSelect("COALESCE(SUM(order.total), 0)", "sales")
     .where("order.status = :status", { status: "completed" })
-    .andWhere("order.createdAt >= :start AND order.createdAt < :end", {
+    .andWhere(manilaRange("order.createdAt"), {
       start: `${start} 00:00:00`,
       end: `${addDays(end, 1)} 00:00:00`,
     })
-    .groupBy("DATE(order.createdAt)")
-    .orderBy("DATE(order.createdAt)", "ASC")
+    .groupBy(`DATE(${manilaOrderDate})`)
+    .orderBy(`DATE(${manilaOrderDate})`, "ASC")
     .getRawMany()
   const dailyMap = new Map<string, number>(
     rows.map((row: Record<string, unknown>) => [
@@ -138,7 +144,7 @@ export async function getSalesReportData(
   const ordersQuery = orderRepository
     .createQueryBuilder("order")
     .leftJoinAndSelect("order.table", "table")
-    .where("order.createdAt >= :start AND order.createdAt < :end", {
+    .where(manilaRange("order.createdAt"), {
       start: startInclusive,
       end: endExclusive,
     })
@@ -163,23 +169,23 @@ export async function getSalesReportData(
       .addSelect("COALESCE(SUM(order.discount), 0)", "discounts")
       .addSelect("COALESCE(SUM(order.tax), 0)", "tax")
       .where("order.status = :status", { status: "completed" })
-      .andWhere("order.createdAt >= :start AND order.createdAt < :end", {
+      .andWhere(manilaRange("order.createdAt"), {
         start: startInclusive,
         end: endExclusive,
       })
       .getRawOne(),
     orderRepository
       .createQueryBuilder("order")
-      .select("DATE(order.createdAt)", "date")
+      .select(`DATE(${manilaOrderDate})`, "date")
       .addSelect("COUNT(*)", "orders")
       .addSelect("COALESCE(SUM(order.total), 0)", "sales")
       .where("order.status = :status", { status: "completed" })
-      .andWhere("order.createdAt >= :start AND order.createdAt < :end", {
+      .andWhere(manilaRange("order.createdAt"), {
         start: startInclusive,
         end: endExclusive,
       })
-      .groupBy("DATE(order.createdAt)")
-      .orderBy("DATE(order.createdAt)", "ASC")
+      .groupBy(`DATE(${manilaOrderDate})`)
+      .orderBy(`DATE(${manilaOrderDate})`, "ASC")
       .getRawMany(),
     source
       .getRepository(OrderItem)
@@ -190,7 +196,7 @@ export async function getSalesReportData(
       .addSelect("SUM(item.quantity)", "quantity")
       .addSelect("COALESCE(SUM(item.subtotal), 0)", "sales")
       .where("order.status = :status", { status: "completed" })
-      .andWhere("order.createdAt >= :start AND order.createdAt < :end", {
+      .andWhere(manilaRange("order.createdAt"), {
         start: startInclusive,
         end: endExclusive,
       })
@@ -204,7 +210,7 @@ export async function getSalesReportData(
       .select("payment.paymentMethod", "method")
       .addSelect("COUNT(*)", "count")
       .addSelect("COALESCE(SUM(payment.amountPaid), 0)", "amount")
-      .where("payment.paidAt >= :start AND payment.paidAt < :end", {
+      .where(manilaRange("payment.paidAt"), {
         start: startInclusive,
         end: endExclusive,
       })
@@ -215,7 +221,7 @@ export async function getSalesReportData(
       .createQueryBuilder("order")
       .select("order.status", "status")
       .addSelect("COUNT(*)", "count")
-      .where("order.createdAt >= :start AND order.createdAt < :end", {
+      .where(manilaRange("order.createdAt"), {
         start: startInclusive,
         end: endExclusive,
       })

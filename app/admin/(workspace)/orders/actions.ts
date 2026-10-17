@@ -649,7 +649,7 @@ export async function markOrderPaymentReceived(
 
   try {
     const dataSource = await getInitializedDataSource()
-    const orderNumber = await dataSource.transaction(async (manager) => {
+    const paymentResult = await dataSource.transaction(async (manager) => {
       const order = await manager
         .getRepository(Order)
         .createQueryBuilder("order")
@@ -701,7 +701,7 @@ export async function markOrderPaymentReceived(
       order.paymentReference = referenceNumber || null
       order.updatedAt = new Date()
       await manager.getRepository(Order).save(order)
-      await manager.getRepository(Payment).save(
+      const payment = await manager.getRepository(Payment).save(
         manager.getRepository(Payment).create({
           id: randomUUID(),
           orderId: order.id,
@@ -712,13 +712,19 @@ export async function markOrderPaymentReceived(
           processedByStaffId: null,
         })
       )
-      return order.orderNumber
+      return {
+        orderNumber: order.orderNumber,
+        receiptNumber: payment.receiptNumber,
+        paidAt: payment.paidAt.toISOString(),
+      }
     })
 
     revalidateOrders()
     return {
       ok: true,
-      message: `Payment for ${orderNumber} marked received.`,
+      message: `Payment for ${paymentResult.orderNumber} marked received.`,
+      receiptNumber: paymentResult.receiptNumber,
+      paidAt: paymentResult.paidAt,
     }
   } catch (error) {
     console.error("Unable to confirm order payment:", error)

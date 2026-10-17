@@ -20,6 +20,13 @@ const dayLabel = (day: string) =>
   }).format(new Date(`${day}T00:00:00.000Z`))
 
 const number = (value: unknown) => Number(value ?? 0) || 0
+// MySQL TIMESTAMP values are exposed in the connection's session timezone.
+// Convert both the range bounds and grouping key to the app's Manila timezone
+// so a UTC database session cannot shift completed sales into another day.
+const manilaOrderDate =
+  "CONVERT_TZ(order.createdAt, @@session.time_zone, '+08:00')"
+const manilaRange = (column: string) =>
+  `${column} >= CONVERT_TZ(:start, '+08:00', @@session.time_zone) AND ${column} < CONVERT_TZ(:end, '+08:00', @@session.time_zone)`
 const percentChange = (current: number, previous: number) =>
   previous === 0
     ? current === 0
@@ -70,7 +77,7 @@ export async function getAdminDashboardData(
     orders
       .createQueryBuilder("order")
       .where("order.status = :status", { status: "completed" })
-      .andWhere("order.createdAt >= :start AND order.createdAt < :end")
+      .andWhere(manilaRange("order.createdAt"))
 
   const [
     todaySummary,
@@ -103,21 +110,21 @@ export async function getAdminDashboardData(
     }),
     orders
       .createQueryBuilder("order")
-      .select("DATE(order.createdAt)", "date")
+      .select(`DATE(${manilaOrderDate})`, "date")
       .addSelect("COUNT(*)", "orders")
       .addSelect("COALESCE(SUM(order.total), 0)", "revenue")
       .where("order.status = :status", { status: "completed" })
-      .andWhere("order.createdAt >= :start AND order.createdAt < :end", {
+      .andWhere(manilaRange("order.createdAt"), {
         start: weekStartInclusive,
         end: tomorrowStart,
       })
-      .groupBy("DATE(order.createdAt)")
+      .groupBy(`DATE(${manilaOrderDate})`)
       .getRawMany(),
     orders
       .createQueryBuilder("order")
       .select("order.status", "status")
       .addSelect("COUNT(*)", "count")
-      .where("order.createdAt >= :start AND order.createdAt < :end", {
+      .where(manilaRange("order.createdAt"), {
         start: weekStartInclusive,
         end: tomorrowStart,
       })
@@ -131,7 +138,7 @@ export async function getAdminDashboardData(
       .select("menuItem.name", "name")
       .addSelect("SUM(item.quantity)", "qty")
       .where("order.status = :status", { status: "completed" })
-      .andWhere("order.createdAt >= :start AND order.createdAt < :end", {
+      .andWhere(manilaRange("order.createdAt"), {
         start: weekStartInclusive,
         end: tomorrowStart,
       })
@@ -145,7 +152,7 @@ export async function getAdminDashboardData(
       .createQueryBuilder("payment")
       .select("payment.paymentMethod", "method")
       .addSelect("COALESCE(SUM(payment.amountPaid), 0)", "amount")
-      .where("payment.paidAt >= :start AND payment.paidAt < :end", {
+      .where(manilaRange("payment.paidAt"), {
         start: weekStartInclusive,
         end: tomorrowStart,
       })
@@ -154,7 +161,7 @@ export async function getAdminDashboardData(
     orders
       .createQueryBuilder("order")
       .leftJoinAndSelect("order.table", "table")
-      .where("order.createdAt >= :start AND order.createdAt < :end", {
+      .where(manilaRange("order.createdAt"), {
         start: todayStart,
         end: tomorrowStart,
       })

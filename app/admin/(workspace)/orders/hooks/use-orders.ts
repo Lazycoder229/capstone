@@ -49,7 +49,7 @@ export function useOrders() {
   function markPaymentReceived(
     orderId: string,
     referenceNumber: string
-  ): Promise<boolean> {
+  ): Promise<OrderActionResult> {
     return new Promise((resolve) =>
       startTransition(async () => {
         try {
@@ -59,14 +59,18 @@ export function useOrders() {
           )
           toast(result.ok ? "success" : "error", result.message)
           if (result.ok) router.refresh()
-          resolve(result.ok)
+          resolve(result)
         } catch {
           toast(
             "error",
             "Could not confirm payment",
             "Check the connection and try again."
           )
-          resolve(false)
+          resolve({
+            ok: false,
+            message:
+              "Could not confirm payment. Check the connection and try again.",
+          })
         }
       })
     )

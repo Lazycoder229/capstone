@@ -8,6 +8,7 @@ import { Promotion } from "@/lib/database/entities/entities/Promotion"
 import { SystemSetting } from "@/lib/database/entities/entities/SystemSetting"
 import { Customer } from "@/lib/database/entities/entities/Customer"
 import { dateOnlyInManila } from "@/lib/dates/date-only"
+import type { ReceiptTemplateSettings } from "@/components/receipt/receipt-template"
 import { LiveOrdersBoard } from "./orders-board"
 import type { CustomerOption, LiveOrder } from "./types"
 
@@ -33,6 +34,7 @@ export async function LiveOrdersPageContent({
           customer: true,
           items: { menuItem: true },
           statusHistory: true,
+          payments: true,
         },
         where: { adminHiddenAt: IsNull() },
         order: { createdAt: "DESC" },
@@ -66,40 +68,47 @@ export async function LiveOrdersPageContent({
         .getRepository(Customer)
         .find({ order: { name: "ASC" }, take: 1000 }),
     ])
-    const rows: LiveOrder[] = orders.map((order) => ({
-      id: order.id,
-      orderNumber: order.orderNumber,
-      orderType: order.orderType,
-      status: order.status,
-      subtotal: Number(order.subtotal),
-      discount: Number(order.discount),
-      tax: Number(order.tax),
-      total: Number(order.total),
-      paymentStatus: order.paymentStatus,
-      paymentMethod: order.paymentMethod,
-      paymentReference: order.paymentReference,
-      customerPaymentReference: order.customerPaymentReference,
-      createdAt: order.createdAt.toISOString(),
-      customerName: order.customer?.name ?? null,
-      customerContact: order.customer?.contactNumber ?? null,
-      tableNumber: order.table?.tableNumber ?? null,
-      items: order.items.map((item) => ({
-        id: item.id,
-        menuItemId: item.menuItemId,
-        name: item.menuItem?.name ?? "Removed menu item",
-        quantity: item.quantity,
-        unitPrice: Number(item.unitPrice),
-        subtotal: Number(item.subtotal),
-        notes: item.notes,
-      })),
-      statusHistory: order.statusHistory
-        .slice()
-        .sort((a, b) => a.changedAt.getTime() - b.changedAt.getTime())
-        .map((history) => ({
-          status: history.status,
-          changedAt: history.changedAt.toISOString(),
+    const rows: LiveOrder[] = orders.map((order) => {
+      const payment = [...(order.payments ?? [])].sort(
+        (a, b) => b.paidAt.getTime() - a.paidAt.getTime()
+      )[0]
+      return {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        orderType: order.orderType,
+        status: order.status,
+        subtotal: Number(order.subtotal),
+        discount: Number(order.discount),
+        tax: Number(order.tax),
+        total: Number(order.total),
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        paymentReference: order.paymentReference,
+        customerPaymentReference: order.customerPaymentReference,
+        receiptNumber: payment?.receiptNumber ?? null,
+        paidAt: payment?.paidAt.toISOString() ?? null,
+        createdAt: order.createdAt.toISOString(),
+        customerName: order.customer?.name ?? null,
+        customerContact: order.customer?.contactNumber ?? null,
+        tableNumber: order.table?.tableNumber ?? null,
+        items: order.items.map((item) => ({
+          id: item.id,
+          menuItemId: item.menuItemId,
+          name: item.menuItem?.name ?? "Removed menu item",
+          quantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+          subtotal: Number(item.subtotal),
+          notes: item.notes,
         })),
-    }))
+        statusHistory: order.statusHistory
+          .slice()
+          .sort((a, b) => a.changedAt.getTime() - b.changedAt.getTime())
+          .map((history) => ({
+            status: history.status,
+            changedAt: history.changedAt.toISOString(),
+          })),
+      }
+    })
 
     const today = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Manila",
@@ -194,6 +203,34 @@ export async function LiveOrdersPageContent({
           serviceChargeEnabled: settings?.serviceChargeEnabled ?? false,
           serviceChargeRate: Number(settings?.serviceChargeRate ?? 0),
         }}
+        printReceiptAuto={settings?.printReceiptAuto ?? true}
+        receiptSettings={
+          settings
+            ? {
+                restaurantName: settings.restaurantName,
+                branchName: settings.branchName,
+                contactNumber: settings.contactNumber,
+                email: settings.email,
+                address: settings.address,
+                tinNumber: settings.tinNumber,
+                birMin: settings.birMin,
+                currencySymbol: settings.currencySymbol,
+                currencyCode: settings.currencyCode,
+                vatEnabled: settings.vatEnabled,
+                vatRate: Number(settings.vatRate),
+                vatInclusive: settings.vatInclusive,
+                serviceChargeEnabled: settings.serviceChargeEnabled,
+                serviceChargeRate: Number(settings.serviceChargeRate),
+                receiptHeader: settings.receiptHeader,
+                receiptFooter: settings.receiptFooter,
+                wifiSsid: settings.wifiSsid,
+                wifiPassword: settings.showWifiOnReceipt
+                  ? (settings.wifiPassword ?? undefined)
+                  : undefined,
+                showWifiOnReceipt: settings.showWifiOnReceipt,
+              }
+            : defaultReceiptSettings
+        }
         basePath={basePath}
       />
     )
@@ -222,4 +259,25 @@ export async function LiveOrdersPageContent({
       </main>
     )
   }
+}
+
+const defaultReceiptSettings: ReceiptTemplateSettings = {
+  restaurantName: "PRIME Roast & Grill",
+  branchName: "",
+  contactNumber: "",
+  email: "",
+  address: "",
+  tinNumber: null,
+  birMin: null,
+  currencySymbol: "₱",
+  currencyCode: "PHP",
+  vatEnabled: false,
+  vatRate: 0,
+  vatInclusive: false,
+  serviceChargeEnabled: false,
+  serviceChargeRate: 0,
+  receiptHeader: null,
+  receiptFooter: null,
+  wifiSsid: null,
+  showWifiOnReceipt: false,
 }

@@ -26,6 +26,8 @@ export type LiveOrder = {
   paymentMethod: string | null
   paymentReference: string | null
   customerPaymentReference: string | null
+  receiptNumber: string | null
+  paidAt: string | null
   createdAt: string
   customerName: string | null
   customerContact: string | null
@@ -45,4 +47,6 @@ export type OrderActionResult = {
   ok: boolean
   message: string
   paymentReferenceToken?: string | null
+  receiptNumber?: string
+  paidAt?: string
 }
