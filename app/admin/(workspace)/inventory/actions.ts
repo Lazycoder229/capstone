@@ -1,9 +1,8 @@
 "use server"
 
 import { randomUUID } from "node:crypto"
-import { mkdir, writeFile, unlink } from "node:fs/promises"
-import path from "node:path"
 import { revalidatePath } from "next/cache"
+import { del, put } from "@vercel/blob"
 import { z } from "zod"
 import { getInitializedDataSource } from "@/lib/database/data-source"
 import { Category } from "@/lib/database/entities/entities/Category"
@@ -255,22 +254,27 @@ export async function recordStockMovement(data: FormData) {
 
 export async function saveMenuItem(data: FormData) {
   const uploaded = data.get("imageFile")
-  let uploadedPath: string | null = null
+  let imageFile: File | null = null
+  let imageMimeType: string | null = null
+  let uploadedBlobUrl: string | null = null
   if (uploaded && typeof uploaded !== "string" && uploaded.size > 0) {
     const isJfif =
       uploaded.type === "image/jfif" || /\.jfif$/i.test(uploaded.name)
-    const extensions: Record<string, string> = {
-      "image/jpeg": ".jpg",
-      "image/png": ".png",
-      "image/webp": ".webp",
-      "image/gif": ".gif",
+    const mimeTypes: Record<string, string> = {
+      "image/jpeg": "image/jpeg",
+      "image/png": "image/png",
+      "image/webp": "image/webp",
+      "image/gif": "image/gif",
     }
-    const extension = isJfif ? ".jpg" : extensions[uploaded.type]
-    if (!extension)
-      return { ok: false, message: "Choose a JPG, PNG, WEBP, or GIF image." }
+    imageMimeType = isJfif ? "image/jpeg" : (mimeTypes[uploaded.type] ?? null)
+    if (!imageMimeType)
+      return {
+        ok: false,
+        message: "Choose a JPG/JPEG/JFIF, PNG, WEBP, or GIF image.",
+      }
     if (uploaded.size > 5 * 1024 * 1024)
       return { ok: false, message: "Menu images must be 5 MB or smaller." }
-    if (isJfif) {
+    if (imageMimeType === "image/jpeg") {
       const signature = new Uint8Array(await uploaded.slice(0, 3).arrayBuffer())
       if (
         signature.length !== 3 ||
@@ -278,30 +282,12 @@ export async function saveMenuItem(data: FormData) {
         signature[1] !== 0xd8 ||
         signature[2] !== 0xff
       )
-        return { ok: false, message: "The JFIF file is not a valid JPEG image." }
+        return {
+          ok: false,
+          message: "The selected file is not a valid JPEG image.",
+        }
     }
-    const filename = `${randomUUID()}${extension}`
-    const uploadDirectory = path.join(
-      process.cwd(),
-      "public",
-      "uploads",
-      "menu"
-    )
-    try {
-      await mkdir(uploadDirectory, { recursive: true })
-      await writeFile(
-        path.join(uploadDirectory, filename),
-        Buffer.from(await uploaded.arrayBuffer())
-      )
-      uploadedPath = `/uploads/menu/${filename}`
-    } catch (error) {
-      console.error("Unable to upload menu image:", error)
-      return {
-        ok: false,
-        message:
-          "Could not upload the image. Check server storage and try again.",
-      }
-    }
+    imageFile = uploaded
   }
   const parsed = menuItemSchema.safeParse({
     id: text(data, "id"),
@@ -309,21 +295,37 @@ export async function saveMenuItem(data: FormData) {
     categoryId: text(data, "categoryId"),
     description: text(data, "description"),
     price: text(data, "price"),
-    imageUrl: uploadedPath ?? "",
+    imageUrl: imageFile ? "/pending-image" : "",
     isAvailable: data.get("isAvailable") === "on",
     stockQuantity: text(data, "stockQuantity"),
   })
   if (!parsed.success) {
-    if (uploadedPath)
-      await unlink(
-        path.join(process.cwd(), "public", uploadedPath.slice(1))
-      ).catch(() => undefined)
     return {
       ok: false,
       message: "Check the menu name, category, price, and stock value.",
     }
   }
   try {
+    if (imageFile && imageMimeType) {
+      const extensions: Record<string, string> = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+      }
+      const blob = await put(
+        `menu/${randomUUID()}${extensions[imageMimeType]}`,
+        imageFile,
+        {
+          access: "public",
+          contentType: imageMimeType,
+          addRandomSuffix: false,
+          cacheControlMaxAge: 3600,
+        }
+      )
+      uploadedBlobUrl = blob.url
+    }
+
     const source = await getInitializedDataSource()
     await source.transaction(async (manager) => {
       const repo = manager.getRepository(MenuItem)
@@ -343,8 +345,11 @@ export async function saveMenuItem(data: FormData) {
       item.categoryId = values.categoryId
       item.description = values.description || null
       item.price = values.price
-      if (uploadedPath) item.imageUrl = uploadedPath
-      else if (!values.id) item.imageUrl = null
+      if (uploadedBlobUrl) {
+        item.imageUrl = uploadedBlobUrl
+      } else if (!values.id) {
+        item.imageUrl = null
+      }
       item.isAvailable = values.isAvailable
       item.stockQuantity = values.id ? previousStock : values.stockQuantity
       item.updatedAt = new Date()
@@ -374,10 +379,9 @@ export async function saveMenuItem(data: FormData) {
     return { ok: true, message: "Menu item saved." }
   } catch (error) {
     console.error("Unable to save menu item:", error)
-    if (uploadedPath)
-      await unlink(
-        path.join(process.cwd(), "public", uploadedPath.slice(1))
-      ).catch(() => undefined)
+    if (uploadedBlobUrl) await del(uploadedBlobUrl).catch(() => undefined)
+    const errorMessage =
+      error instanceof Error ? error.message.toLowerCase() : ""
     return {
       ok: false,
       message:
@@ -387,7 +391,11 @@ export async function saveMenuItem(data: FormData) {
           "Choose an active menu category.",
         ].includes(error.message)
           ? error.message
-          : "Could not save the menu item. Check the database connection.",
+          : uploadedBlobUrl === null && imageFile
+            ? "Could not upload the image. Connect the Vercel Blob store and make sure BLOB_READ_WRITE_TOKEN is configured."
+            : errorMessage.includes("blob") || errorMessage.includes("token")
+              ? "Could not upload the image. Connect the Vercel Blob store and make sure BLOB_READ_WRITE_TOKEN is configured."
+              : "Could not save the menu item. Check the database connection.",
     }
   }
 }
