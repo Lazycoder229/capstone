@@ -1,7 +1,7 @@
 import { Fraunces, Manrope } from "next/font/google"
 import {
   QrCode,
-  Wifi,
+  RefreshCw,
   MonitorSmartphone,
   Printer,
   LayoutGrid,
@@ -35,19 +35,19 @@ export const groups = [
         icon: QrCode,
         title: "QR code table ordering",
         detail:
-          "Guests scan the code on their table and order straight from their own phone — no app, no queue.",
+          "Guests scan a table QR code to open the menu in their browser and place an order.",
       },
       {
-        icon: Wifi,
-        title: "Real-time order sync",
+        icon: RefreshCw,
+        title: "Automatic order refresh",
         detail:
-          "The moment an order is placed, it's on every screen and ticket that needs to see it.",
+          "The admin order board refreshes every 20 seconds to pick up changes made elsewhere.",
       },
       {
         icon: MonitorSmartphone,
-        title: "QR order visibility dashboard",
+        title: "Order status dashboard",
         detail:
-          "Staff can see every table's live order status at a glance, without walking over to ask.",
+          "Staff can check current order and table statuses in the POS workspace.",
       },
     ],
   },
@@ -57,21 +57,21 @@ export const groups = [
     items: [
       {
         icon: Printer,
-        title: "Automated thermal ticketing",
+        title: "Printer setup preferences",
         detail:
-          "Orders print straight to the kitchen printer over ESC/POS — no tablet mounted above the stove.",
+          "Admins can save printer connection details and receipt or kitchen-ticket auto-print preferences.",
       },
       {
         icon: LayoutGrid,
         title: "Dynamic menu management",
         detail:
-          "Sell out of the bulalo? Pull it from every table's menu in seconds, not at the next reprint.",
+          "Mark a dish unavailable in the admin menu to remove it from customer ordering.",
       },
       {
         icon: ClipboardList,
-        title: "Inline & counter encoding",
+        title: "Cashier order entry",
         detail:
-          "Walk-ins and phone orders get entered the same way QR orders do, so nothing runs on a separate list.",
+          "Cashiers can record walk-in and counter orders in the same POS workspace.",
       },
     ],
   },
@@ -83,31 +83,31 @@ export const groups = [
         icon: CreditCard,
         title: "Payment & digital receipts",
         detail:
-          "Take payment at the table or counter and send a receipt without printing paper.",
+          "Offer the payment methods enabled in store settings and provide digital receipts for eligible orders.",
       },
       {
         icon: History,
         title: "Voids with audit logging",
         detail:
-          "Every cancelled order is logged with who did it and why — nothing quietly disappears.",
+          "Void and cancellation history records the staff involved, reason, status, and resolution details.",
       },
       {
         icon: ShieldCheck,
         title: "Role-based access",
         detail:
-          "Cashiers, kitchen staff, and managers each see only what their role needs to.",
+          "Admins assign roles and permissions to control which parts of the workspace each staff account can use.",
       },
       {
         icon: BarChart3,
         title: "Sales reporting & analytics",
         detail:
-          "Know your best-selling dish and slowest hour without exporting a spreadsheet.",
+          "Review sales, order, and inventory reports in the admin workspace.",
       },
       {
         icon: Users,
         title: "Employee management",
         detail:
-          "Shifts, roles, and staff records live in the same system as the orders they take.",
+          "Manage employee profiles, attendance, payroll, roles, and permissions from the admin workspace.",
       },
     ],
   },
@@ -122,21 +122,21 @@ export const steps = [
   },
   {
     n: "02",
-    title: "Order lands on every screen at once",
+    title: "Staff review the order in the POS",
     detail:
-      "Front counter, dashboard, and kitchen queue all update in real time.",
+      "The order is saved in the system and appears in the staff order workspace, which refreshes periodically.",
   },
   {
     n: "03",
-    title: "Kitchen gets a printed ticket",
+    title: "Staff track order progress",
     detail:
-      "No tablet required — the ESC/POS printer fires off the order like it always has.",
+      "Staff can review the order and update its status from the POS order board.",
   },
   {
     n: "04",
-    title: "Guest pays, receipt sent digitally",
+    title: "Payment and receipt",
     detail:
-      "Closing the table takes one action, and the paper trail is optional.",
+      "Payment options depend on store settings; digital receipts are available for eligible customer orders.",
   },
 ]
 
@@ -145,74 +145,75 @@ export const comparison = [
     before:
       "Orders scribbled on paper get lost between the table and the kitchen.",
     after:
-      "Orders sync in real time, straight through to a printed kitchen ticket.",
+      "Orders are stored in the POS and shown in the staff order workspace.",
   },
   {
     before: "Staff walk the floor to check which tables have been served.",
-    after: "One dashboard shows every table's order status, live.",
+    after: "Staff can check table and order status from the POS workspace.",
   },
   {
     before: "A menu change means reprinting menus for every table.",
     after:
-      "Update a dish once — it updates on every table's screen at the same time.",
+      "Change menu availability in one place and customer ordering uses the updated menu data.",
   },
   {
     before: "A voided order is just whatever the cashier says happened.",
-    after: "Every void is logged with who did it, when, and why.",
+    after:
+      "Void and cancellation history records staff, reason, status, and resolution details.",
   },
   {
     before: "Sales numbers only show up at closing, added up by hand.",
-    after: "A live dashboard tracks sales as the shift happens.",
+    after: "Admin dashboards and reports summarize sales and order activity.",
   },
 ]
 
 export const specs = [
   {
-    label: "Order sync",
+    label: "Order updates",
     value:
-      "Real-time channel between guest, counter, and kitchen — no manual refresh.",
+      "The admin order board refreshes every 20 seconds to check for new changes.",
   },
   {
-    label: "Ticketing",
+    label: "Printer settings",
     value:
-      "ESC/POS thermal printer protocol — works with printers you likely already own.",
+      "Admins can save printer connection details and receipt or kitchen-ticket auto-print preferences. Actual printing depends on the deployed printer setup.",
   },
   {
     label: "Access control",
     value:
-      "Role-based permissions for admin, cashier, kitchen, and manager accounts.",
+      "Administrators can assign roles and permissions to staff accounts.",
   },
   {
     label: "Audit trail",
     value:
-      "Every void, edit, and payment is timestamped and attributed to a user.",
+      "Void requests record the staff involved, reason, status, and resolution details.",
   },
   {
     label: "Menu state",
     value:
-      "Centralized menu data, so one edit reflects across QR, counter, and dashboard at once.",
+      "Customer ordering pages read menu availability and pricing from the shared database.",
   },
 ]
 
 export const faqs = [
   {
-    q: "Do we need to replace our existing printer?",
-    a: "No. As long as it supports ESC/POS — which most thermal receipt printers do — PRIME prints tickets straight to it.",
+    q: "Can I configure our existing printers?",
+    a: "The admin workspace can save printer connection details and auto-print preferences. Actual printing depends on the printer integration and deployment setup.",
   },
   {
     q: "What happens if the internet drops mid-shift?",
-    a: "PRIME is built to run on your restaurant's own local network rather than depend on the public internet, but order sync does need that local connection to stay up.",
+    a: "PRIME needs access to its application server and database. Offline behavior depends on where those services are hosted and how the restaurant network is configured.",
   },
   {
     q: "Can different staff see different things?",
-    a: "Yes. Role-based access means a cashier, a kitchen staff member, and a manager each get a view suited to their job, not the full system.",
+    a: "Yes. Administrators can assign roles and permissions to control which workspace features staff accounts can access.",
   },
   {
     q: "How are voided orders tracked?",
-    a: "Every void or cancellation is logged with the staff member, the time, and a reason, so nothing disappears without a record.",
+    a: "Void and cancellation history records the staff involved, reason, status, and resolution details.",
   },
   {
     q: "Is PRIME built for a specific kind of restaurant?",
-    a: "It's designed around small to mid-sized restaurants that already run on a printed kitchen ticket, and want QR ordering added on top of that — not a full hardware replacement.",
+    a: "PRIME combines QR ordering with cashier, menu, inventory, employee, and reporting workflows. Printer behavior should be confirmed for each deployment.",
   },
 ]

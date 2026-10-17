@@ -1,4 +1,3 @@
-import { Fragment } from "react"
 import { redirect } from "next/navigation"
 import {
   fraunces,
@@ -11,6 +10,7 @@ import {
 } from "./constant"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Scroll3DReveal } from "@/components/scroll-3d-reveal"
 import {
   Accordion,
   AccordionContent,
@@ -18,10 +18,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import {
-  Wifi,
   ArrowRight,
   X,
-  Printer,
   Check,
   GraduationCap,
 } from "lucide-react"
@@ -60,12 +58,12 @@ export default async function PrimeLanding({
             <a href="#faq" className="hover:text-[#201A10]">
               FAQ
             </a>
-            <a href="#contact" className="hover:text-[#201A10]">
-              Contact
+            <a href="#try-ordering" className="hover:text-[#201A10]">
+              Try ordering
             </a>
           </nav>
-          <Button className="bg-[#C9971C] text-[#201A10] hover:bg-[#A97815]">
-            Request a demo
+          <Button asChild className="bg-[#C9971C] text-[#201A10] hover:bg-[#A97815]">
+            <a href="/customer/kiosk">Open customer menu</a>
           </Button>
         </div>
       </header>
@@ -74,29 +72,32 @@ export default async function PrimeLanding({
       <section className="mx-auto grid max-w-6xl gap-16 px-6 py-20 md:grid-cols-2 md:items-center md:py-28">
         <div>
           <Badge className="mb-6 border border-[#EADFC0] bg-[#FBEFD1] text-[#8A6414] hover:bg-[#FBEFD1]">
-            Built for kitchens without a touchscreen KDS
+            QR ordering and staff tools in one POS
           </Badge>
           <h1
             className="text-[2.75rem] leading-[1.05] md:text-6xl"
             style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}
           >
-            Every table orders itself.{" "}
+            Let guests order by QR.{" "}
             <em className="text-[#A97815] not-italic">
-              Every ticket still prints.
+              Keep operations connected.
             </em>
           </h1>
           <p className="mt-6 max-w-md text-lg text-[#4A4030]">
-            PRIME runs QR ordering, kitchen ticketing, and staff management from
-            one system — so your kitchen keeps its printer, and your front of
-            house stops running on sticky notes.
+            PRIME brings customer QR ordering, cashier workflows, menu and
+            inventory management, staff accounts, and reporting into one
+            web-based POS.
           </p>
           <div className="mt-8 flex items-center gap-4">
             <Button
               size="lg"
+              asChild
               className="bg-[#201A10] text-[#FFFBF0] hover:bg-[#3A2F1D]"
             >
-              See PRIME in action
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <a href="#how-it-works">
+                See the order flow
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </a>
             </Button>
             <a
               href="#features"
@@ -107,18 +108,21 @@ export default async function PrimeLanding({
           </div>
         </div>
 
-        {/* Ticket mockup */}
-        <div className="relative mx-auto w-full max-w-sm">
+        {/* Sample order mockup; this is illustrative, not live order data. */}
+        <Scroll3DReveal
+          className="relative mx-auto w-full max-w-sm"
+          direction="right"
+          delay={120}
+        >
           <div className="rounded-sm border border-[#EADFC0] bg-white p-6 shadow-[0_1px_0_#EADFC0]">
             <div className="flex items-center justify-between text-xs text-[#8A6414]">
-              <span>TABLE 07</span>
-              <span>#0142</span>
+              <span>SAMPLE ORDER · TABLE 07</span>
+              <span>DEMO-0142</span>
             </div>
             <div className="mt-4 space-y-3 border-t border-dashed border-[#EADFC0] pt-4">
               {[
-                ["1x", "Sisig Rice Bowl"],
-                ["2x", "Iced Calamansi"],
-                ["1x", "Halo-Halo"],
+                ["1x", "Pards Litson Manok"],
+                ["2x", "White Rice"],
               ].map(([qty, item]) => (
                 <div key={item} className="flex justify-between text-sm">
                   <span className="text-[#4A4030]">
@@ -129,24 +133,21 @@ export default async function PrimeLanding({
               ))}
             </div>
             <div className="mt-5 flex items-center justify-between border-t border-dashed border-[#EADFC0] pt-4 text-xs text-[#8A6414]">
-              <span>SYNCED · 0.4s</span>
+              <span>ORDER STATUS</span>
               <span className="flex items-center gap-1 text-[#A97815]">
-                <Wifi className="h-3.5 w-3.5" /> LIVE
+                <Check className="h-3.5 w-3.5" /> RECEIVED
               </span>
             </div>
           </div>
-          {/* printing ticket */}
           <div className="relative -mt-1 ml-6 w-[85%] rounded-b-sm border border-t-0 border-[#EADFC0] bg-[#FBEFD1] p-4">
             <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-[#8A6414]">
-              <Printer className="h-3.5 w-3.5" />
-              SENT TO KITCHEN
+              STAFF ORDER BOARD
             </div>
-            <div
-              className="mt-2 h-2 w-full bg-[repeating-linear-gradient(90deg,#EADFC0_0_6px,transparent_6px_12px)]"
-              aria-hidden
-            />
+            <p className="mt-2 text-sm text-[#4A4030]">
+              Table 07 · Order received
+            </p>
           </div>
-        </div>
+        </Scroll3DReveal>
       </section>
 
       {/* Problem / solution */}
@@ -165,17 +166,24 @@ export default async function PrimeLanding({
             <span className="hidden text-sm font-medium text-[#8A6414] md:block">
               With PRIME
             </span>
-            {comparison.map((row) => (
-              <Fragment key={row.before}>
-                <div className="flex gap-3 border-t border-[#EADFC0] pt-6 md:border-t">
-                  <X className="mt-0.5 h-4 w-4 shrink-0 text-[#B0A98A]" />
-                  <p className="text-[#4A4030]">{row.before}</p>
-                </div>
-                <div className="flex gap-3 border-t border-[#EADFC0] pt-6">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#C9971C]" />
-                  <p className="text-[#201A10]">{row.after}</p>
-                </div>
-              </Fragment>
+            {comparison.map((row, index) => (
+              <div
+                key={row.before}
+                className="grid gap-x-10 md:col-span-2 md:grid-cols-2"
+              >
+                <Scroll3DReveal delay={index * 70} direction="left">
+                  <div className="flex gap-3 border-t border-[#EADFC0] pt-6 md:border-t">
+                    <X className="mt-0.5 h-4 w-4 shrink-0 text-[#B0A98A]" />
+                    <p className="text-[#4A4030]">{row.before}</p>
+                  </div>
+                </Scroll3DReveal>
+                <Scroll3DReveal delay={index * 70 + 80} direction="right">
+                  <div className="flex gap-3 border-t border-[#EADFC0] pt-6">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#C9971C]" />
+                    <p className="text-[#201A10]">{row.after}</p>
+                  </div>
+                </Scroll3DReveal>
+              </div>
             ))}
           </div>
         </div>
@@ -192,7 +200,7 @@ export default async function PrimeLanding({
               className="text-3xl"
               style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}
             >
-              One system, three counters
+              One system for the whole shift
             </h2>
             <span className="hidden text-sm text-[#8A6414] md:inline">
               11 features, grouped by who uses them
@@ -200,8 +208,12 @@ export default async function PrimeLanding({
           </div>
 
           <div className="grid gap-12 md:grid-cols-3">
-            {groups.map((group) => (
-              <div key={group.label}>
+            {groups.map((group, index) => (
+              <Scroll3DReveal
+                key={group.label}
+                delay={index * 100}
+                direction={index % 2 === 0 ? "left" : "right"}
+              >
                 <h3
                   className="text-lg"
                   style={{ fontFamily: "var(--font-display)", fontWeight: 600 }}
@@ -224,7 +236,7 @@ export default async function PrimeLanding({
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Scroll3DReveal>
             ))}
           </div>
         </div>
@@ -239,8 +251,12 @@ export default async function PrimeLanding({
           From scan to receipt
         </h2>
         <div className="grid gap-10 md:grid-cols-4">
-          {steps.map((step) => (
-            <div key={step.n}>
+          {steps.map((step, index) => (
+            <Scroll3DReveal
+              key={step.n}
+              delay={index * 80}
+              direction={index % 2 === 0 ? "left" : "right"}
+            >
               <span
                 className="text-sm text-[#C9971C]"
                 style={{ fontFamily: "var(--font-display)", fontWeight: 600 }}
@@ -251,7 +267,7 @@ export default async function PrimeLanding({
               <p className="mt-2 text-sm leading-relaxed text-[#4A4030]">
                 {step.detail}
               </p>
-            </div>
+            </Scroll3DReveal>
           ))}
         </div>
       </section>
@@ -266,10 +282,12 @@ export default async function PrimeLanding({
             Under the hood
           </h2>
           <div className="grid gap-8 md:grid-cols-2">
-            {specs.map((spec) => (
-              <div
+            {specs.map((spec, index) => (
+              <Scroll3DReveal
                 key={spec.label}
                 className="flex flex-col gap-1 border-b border-[#EADFC0] pb-6 md:flex-row md:gap-6"
+                delay={index * 70}
+                direction={index % 2 === 0 ? "left" : "right"}
               >
                 <span
                   className="w-40 shrink-0 text-sm text-[#8A6414]"
@@ -283,7 +301,7 @@ export default async function PrimeLanding({
                   </code>
                 </span>
                 <p className="text-[#4A4030]">{spec.value}</p>
-              </div>
+              </Scroll3DReveal>
             ))}
           </div>
         </div>
@@ -317,7 +335,7 @@ export default async function PrimeLanding({
 
       {/* About the project */}
       <section className="border-t border-[#EADFC0] bg-[#FBEFD1]/40">
-        <div className="mx-auto max-w-3xl px-6 py-20 text-center">
+        <Scroll3DReveal className="mx-auto max-w-3xl px-6 py-20 text-center">
           <Badge className="mb-6 border border-[#EADFC0] bg-white text-[#8A6414] hover:bg-white">
             <GraduationCap className="mr-1.5 h-3.5 w-3.5" />
             Capstone project
@@ -329,41 +347,37 @@ export default async function PrimeLanding({
             PRIME — Point-of-sale Restaurant Integrated Management Ecosystem
           </h2>
           <p className="mt-4 text-[#4A4030]">
-            A QR-based ordering, inventory, and employee management system for
-            restaurant operations, built for restaurants that run on printed
-            kitchen tickets and want to add contactless ordering without
-            replacing that workflow.
+            A restaurant POS project combining QR ordering, cashier workflows,
+            menu and inventory management, employee tools, and sales reporting.
           </p>
-          {/* TODO: swap in your school, section, and team member names */}
-          <p className="mt-4 text-sm text-[#8A6414]">
-            Developed by Resty Gonzales
-          </p>
-        </div>
+        </Scroll3DReveal>
       </section>
 
       {/* CTA */}
-      <section id="contact" className="border-t border-[#EADFC0] bg-[#201A10]">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-6 py-16 md:flex-row md:items-center">
+      <section id="try-ordering" className="border-t border-[#EADFC0] bg-[#201A10]">
+        <Scroll3DReveal className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-6 py-16 md:flex-row md:items-center">
           <div>
             <h2
               className="text-3xl text-[#FFFBF0]"
               style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}
             >
-              Ready to see PRIME on your own menu?
+              Explore the customer ordering flow
             </h2>
             <p className="mt-2 text-[#C9AF7E]">
-              We'll walk through it with your actual dishes and your actual
-              printer.
+              Open the customer menu and see how QR ordering works.
             </p>
           </div>
           <Button
             size="lg"
+            asChild
             className="shrink-0 bg-[#C9971C] text-[#201A10] hover:bg-[#E0AE33]"
           >
-            Request a demo
-            <ArrowRight className="ml-2 h-4 w-4" />
+            <a href="/customer/kiosk">
+              Try customer ordering
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </a>
           </Button>
-        </div>
+        </Scroll3DReveal>
       </section>
 
       {/* Footer */}
@@ -378,7 +392,7 @@ export default async function PrimeLanding({
             </span>
             <p className="mt-2 max-w-xs text-sm text-[#8A6414]">
               Point-of-sale Restaurant Integrated Management Ecosystem — QR
-              ordering, kitchen ticketing, and staff management in one system.
+              ordering, cashier tools, inventory, and staff management.
             </p>
           </div>
           <div>
@@ -405,8 +419,8 @@ export default async function PrimeLanding({
             <p className="text-sm font-medium text-[#201A10]">Project</p>
             <ul className="mt-3 space-y-2 text-sm text-[#8A6414]">
               <li>
-                <a href="#contact" className="hover:text-[#201A10]">
-                  Contact
+                <a href="#try-ordering" className="hover:text-[#201A10]">
+                  Try ordering
                 </a>
               </li>
             </ul>
