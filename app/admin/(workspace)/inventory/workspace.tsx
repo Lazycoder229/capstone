@@ -1247,12 +1247,12 @@ export function InventoryWorkspace({
               <Input
                 name="imageFile"
                 type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
+                accept="image/jpeg,image/jfif,.jfif,image/png,image/webp,image/gif"
                 className="h-auto py-2 file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs file:font-medium"
               />
               <span className="block text-xs font-normal text-muted-foreground">
-                Choose an image from this device (JPG, PNG, WEBP, or GIF; up to
-                5 MB).
+                Choose an image from this device (JPG/JPEG/JFIF, PNG, WEBP, or
+                GIF; up to 5 MB).
                 {editingMenu?.imageUrl
                   ? " Leave empty to keep the current image, or choose a new file to replace it."
                   : ""}

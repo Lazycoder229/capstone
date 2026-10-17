@@ -257,17 +257,29 @@ export async function saveMenuItem(data: FormData) {
   const uploaded = data.get("imageFile")
   let uploadedPath: string | null = null
   if (uploaded && typeof uploaded !== "string" && uploaded.size > 0) {
+    const isJfif =
+      uploaded.type === "image/jfif" || /\.jfif$/i.test(uploaded.name)
     const extensions: Record<string, string> = {
       "image/jpeg": ".jpg",
       "image/png": ".png",
       "image/webp": ".webp",
       "image/gif": ".gif",
     }
-    const extension = extensions[uploaded.type]
+    const extension = isJfif ? ".jpg" : extensions[uploaded.type]
     if (!extension)
       return { ok: false, message: "Choose a JPG, PNG, WEBP, or GIF image." }
     if (uploaded.size > 5 * 1024 * 1024)
       return { ok: false, message: "Menu images must be 5 MB or smaller." }
+    if (isJfif) {
+      const signature = new Uint8Array(await uploaded.slice(0, 3).arrayBuffer())
+      if (
+        signature.length !== 3 ||
+        signature[0] !== 0xff ||
+        signature[1] !== 0xd8 ||
+        signature[2] !== 0xff
+      )
+        return { ok: false, message: "The JFIF file is not a valid JPEG image." }
+    }
     const filename = `${randomUUID()}${extension}`
     const uploadDirectory = path.join(
       process.cwd(),
