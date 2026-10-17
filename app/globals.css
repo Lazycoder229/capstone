@@ -222,7 +222,7 @@
 
 .restaurant-scroll-scene {
   position: fixed;
-  z-index: 1;
+  z-index: 3;
   top: 0;
   left: 0;
   right: 0;
@@ -230,9 +230,8 @@
   height: 100dvh;
   overflow: hidden;
   pointer-events: none;
-  opacity: 0.34;
-  mix-blend-mode: multiply;
-  mask-image: linear-gradient(90deg, #000 0%, #000 92%, transparent 100%);
+  opacity: 1;
+  mask-image: none;
 }
 
 .restaurant-landing > section,
@@ -246,46 +245,49 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  opacity: 0.12;
 }
 
 .restaurant-scroll-track {
   position: absolute;
   top: 50%;
-  right: 28px;
-  left: 28px;
-  border-top: 1px dashed #68766b66;
+  right: 7%;
+  left: 7%;
+  border-top: 1px dashed #b48a3180;
 }
 
 .restaurant-scroll-mascot {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 150px;
-  height: 184px;
+  display: block;
+  width: 132px;
+  height: 162px;
   overflow: visible;
-  transform: translate3d(var(--restaurant-bot-x, 28px), -50%, 0);
-  filter: drop-shadow(0 10px 20px #6d655020);
-  will-change: transform;
+  filter: drop-shadow(0 10px 18px #55431d30);
 }
 
-.restaurant-action { display: none; }
-.restaurant-scroll-scene[data-action="prepare"] .restaurant-action-prepare,
-.restaurant-scroll-scene[data-action="serve"] .restaurant-action-serve,
-.restaurant-scroll-scene[data-action="clean"] .restaurant-action-clean { display: block; }
-
-.restaurant-scroll-scene::after {
+.restaurant-bot-card {
   position: absolute;
-  top: calc(50% + 104px);
-  left: calc(var(--restaurant-bot-x, 28px) + 34px);
-  padding: 7px 10px;
-  border: 1px solid #68766b40;
-  border-radius: 999px;
-  background: #ffffffd9;
-  color: #46564e;
-  font: 600 8px/1.2 var(--font-body);
+  top: 50%;
+  display: flex;
+  width: 150px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 8px 7px;
+  border: 1px solid #c49a3d66;
+  border-radius: 20px;
+  background: #fffdf5e8;
+  box-shadow: 0 12px 34px #54431d1a;
+  transform: translateY(-50%);
+}
+
+.restaurant-bot-card--manager { left: clamp(8px, 2.5vw, 42px); }
+.restaurant-bot-card--crew { right: clamp(8px, 2.5vw, 42px); }
+
+.restaurant-bot-card span {
+  color: #8c6519;
+  font: 700 8px/1.2 var(--font-body);
   letter-spacing: 0.14em;
   white-space: nowrap;
-  content: attr(data-action-label);
 }
 
 /* Keep the public landing page airy while the restaurant scene stays subtle. */
@@ -378,18 +380,23 @@
 
 @media (max-width: 640px) {
   .restaurant-scroll-scene {
-    opacity: 0.2;
+    z-index: 3;
+    opacity: 0.55;
+  }
+
+  .restaurant-bot-card {
+    width: 82px;
+    padding: 5px 3px;
+    border-radius: 12px;
   }
 
   .restaurant-scroll-mascot {
-    width: 110px;
-    height: 135px;
+    width: 72px;
+    height: 88px;
   }
 
-  .restaurant-scroll-scene::after {
-    top: calc(50% + 78px);
-    left: calc(var(--restaurant-bot-x, 28px) + 24px);
-    font-size: 6px;
+  .restaurant-bot-card span {
+    font-size: 5px;
   }
 }
 
@@ -401,12 +408,7 @@
   }
 
   .restaurant-scroll-mascot {
-    --restaurant-bot-x: 28px;
-    will-change: auto;
-  }
-
-  .restaurant-scroll-scene::after {
-    content: "PREPARING FRESH ORDERS";
+    filter: none;
   }
 
   .scroll-3d-reveal,
