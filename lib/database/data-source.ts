@@ -3,6 +3,15 @@ import mysql from "mysql2"
 import { entities } from "./entities/entities"
 
 const port = Number(process.env.DB_PORT ?? 3306)
+// Serverless deployments can create many short-lived app instances. The
+// mysql2 default allows up to 10 connections per instance, which can exhaust
+// a small managed database when Vercel scales out. Keep each instance's pool
+// small while allowing deployments to tune it for their database plan.
+const configuredPoolSize = Number(process.env.DB_POOL_SIZE ?? 2)
+const poolSize =
+  Number.isInteger(configuredPoolSize) && configuredPoolSize > 0
+    ? configuredPoolSize
+    : 2
 
 /** Shared TypeORM connection for server-side code. Next.js loads `.env*` values. */
 export const AppDataSource = new DataSource({
@@ -10,6 +19,7 @@ export const AppDataSource = new DataSource({
   driver: mysql,
   host: process.env.DB_HOST ?? "",
   port: Number.isInteger(port) && port > 0 ? port : 3306,
+  poolSize,
   username: process.env.DB_USERNAME ?? "",
   password: process.env.DB_PASSWORD ?? "",
   database: process.env.DB_DATABASE ?? "",
