@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Scroll3DReveal } from "@/components/scroll-3d-reveal"
+import { ServiceJourneyScene } from "@/components/service-journey-scene"
 import {
   Accordion,
   AccordionContent,
@@ -249,6 +250,33 @@ export default async function PrimeLanding({
                 className="absolute top-[20%] right-[17%] size-2 rounded-full bg-cyan-200 shadow-[0_0_20px_8px_#67e8f955]"
               />
             </div>
+          </Scroll3DReveal>
+        </div>
+      </section>
+
+      {/* Animated kitchen-to-table story */}
+      <section className="border-b border-white/10 bg-[#080F18] px-5 py-20 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-6xl">
+          <Scroll3DReveal direction="center">
+            <div className="mx-auto max-w-2xl text-center">
+              <Badge className="mb-5 border border-cyan-100/15 bg-cyan-100/[0.06] text-cyan-100 hover:bg-cyan-100/[0.06]">
+                A smoother service flow
+              </Badge>
+              <h2
+                className="text-3xl leading-tight text-white sm:text-4xl"
+                style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}
+              >
+                From the kitchen
+                <span className="text-cyan-300"> to your table.</span>
+              </h2>
+              <p className="mt-4 text-sm leading-6 text-slate-400 sm:text-base">
+                Orders move from preparation to the dining room in one clear,
+                connected flow.
+              </p>
+            </div>
+          </Scroll3DReveal>
+          <Scroll3DReveal direction="center" delay={100}>
+            <ServiceJourneyScene />
           </Scroll3DReveal>
         </div>
       </section>
