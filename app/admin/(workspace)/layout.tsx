@@ -1,5 +1,7 @@
+import { Suspense } from "react"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import { PrimePosChatbot } from "@/components/prime-pos-chatbot"
+import { PrimeLoadingScreen } from "@/components/prime-loading-screen"
 import { Separator } from "@/components/ui/separator"
 import { connection } from "next/server"
 import { requireAdministrator } from "@/lib/staff-auth/session"
@@ -11,11 +13,21 @@ import {
 
 export const dynamic = "force-dynamic"
 
-export default async function AdminWorkspaceLayout({
+export default function AdminWorkspaceLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  return (
+    <Suspense fallback={<PrimeLoadingScreen title="Loading admin workspace" />}>
+      <AuthorizedAdminWorkspace>{children}</AuthorizedAdminWorkspace>
+    </Suspense>
+  )
+}
+
+async function AuthorizedAdminWorkspace({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   // Admin pages show live, database-backed workspace data. Keep them out of
   // build-time prerendering so database queries run only for real requests.
   await connection()

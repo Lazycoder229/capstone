@@ -1,4 +1,6 @@
+import { Suspense } from "react"
 import { EmployeeSidebar } from "@/components/employee-sidebar"
+import { PrimeLoadingScreen } from "@/components/prime-loading-screen"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -7,7 +9,17 @@ import {
 } from "@/components/ui/sidebar"
 import { requireEmployeeSession } from "@/lib/staff-auth/session"
 
-export default async function EmployeeWorkspaceLayout({
+export default function EmployeeWorkspaceLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <Suspense fallback={<PrimeLoadingScreen title="Loading employee workspace" />}>
+      <AuthorizedEmployeeWorkspace>{children}</AuthorizedEmployeeWorkspace>
+    </Suspense>
+  )
+}
+
+async function AuthorizedEmployeeWorkspace({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const staff = await requireEmployeeSession()

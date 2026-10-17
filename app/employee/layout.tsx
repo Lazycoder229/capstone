@@ -1,6 +1,7 @@
 export const metadata = {
   title: "PRIME Employee Portal",
   description: "View your attendance and payslips in PRIME POS.",
+  manifest: "/employee/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

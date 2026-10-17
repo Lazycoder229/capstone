@@ -1,5 +1,7 @@
+import { Suspense } from "react"
 import { CashierSidebar } from "@/components/cashier-sidebar"
 import { PrimePosChatbot } from "@/components/prime-pos-chatbot"
+import { PrimeLoadingScreen } from "@/components/prime-loading-screen"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -8,7 +10,17 @@ import {
 } from "@/components/ui/sidebar"
 import { requireStaffPermission } from "@/lib/staff-auth/session"
 
-export default async function CashierLayout({
+export default function CashierLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <Suspense fallback={<PrimeLoadingScreen title="Loading cashier workspace" />}>
+      <AuthorizedCashierWorkspace>{children}</AuthorizedCashierWorkspace>
+    </Suspense>
+  )
+}
+
+async function AuthorizedCashierWorkspace({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const staff = await requireStaffPermission("orders:view", "/cashier/login")

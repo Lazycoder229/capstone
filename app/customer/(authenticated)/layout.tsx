@@ -1,7 +1,19 @@
+import { Suspense } from "react"
 import { CustomerWorkspaceShell } from "@/components/customer-workspace-shell"
+import { PrimeLoadingScreen } from "@/components/prime-loading-screen"
 import { requireCustomerSession } from "@/lib/customer-auth/session"
 
-export default async function AuthenticatedCustomerLayout({
+export default function AuthenticatedCustomerLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <Suspense fallback={<PrimeLoadingScreen title="Loading your account" />}>
+      <AuthorizedCustomerWorkspace>{children}</AuthorizedCustomerWorkspace>
+    </Suspense>
+  )
+}
+
+async function AuthorizedCustomerWorkspace({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const customer = await requireCustomerSession()
