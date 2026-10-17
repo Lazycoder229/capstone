@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import { EmployeeSidebar } from "@/components/employee-sidebar"
-import { PrimeLoadingScreen } from "@/components/prime-loading-screen"
+import { PageSkeleton } from "@/components/page-skeleton"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -15,10 +15,7 @@ export default function EmployeeWorkspaceLayout({
   return (
     <Suspense
       fallback={
-        <PrimeLoadingScreen
-          appKey="employee"
-          title="Loading employee workspace"
-        />
+        <PageSkeleton />
       }
     >
       <AuthorizedEmployeeWorkspace>{children}</AuthorizedEmployeeWorkspace>

@@ -13,7 +13,7 @@ export default async function CustomerLoginPage({
     searchParams ?? Promise.resolve({ returnTo: undefined }),
     getCustomerSession(),
   ])
-  if (customer) redirect("/customer/kiosk")
+  if (customer) redirect("/customer/dashboard")
   const returnTo = Array.isArray(query.returnTo)
     ? (query.returnTo[0] ?? "")
     : (query.returnTo ?? "")

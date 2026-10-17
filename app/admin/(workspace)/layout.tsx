@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import { PrimePosChatbot } from "@/components/prime-pos-chatbot"
-import { PrimeLoadingScreen } from "@/components/prime-loading-screen"
+import { PageSkeleton } from "@/components/page-skeleton"
 import { Separator } from "@/components/ui/separator"
 import { connection } from "next/server"
 import { requireAdministrator } from "@/lib/staff-auth/session"
@@ -21,7 +21,7 @@ export default function AdminWorkspaceLayout({
   return (
     <Suspense
       fallback={
-        <PrimeLoadingScreen appKey="admin" title="Loading admin workspace" />
+        <PageSkeleton />
       }
     >
       <AuthorizedAdminWorkspace>{children}</AuthorizedAdminWorkspace>

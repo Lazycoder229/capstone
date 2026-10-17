@@ -15,19 +15,27 @@ export type CustomerAuthState = { message: string } | null
 
 const emailSchema = z.string().trim().email().max(255)
 
-function kioskReturnTo(value: FormDataEntryValue | null) {
+function customerReturnTo(value: FormDataEntryValue | null) {
   const raw = typeof value === "string" ? value : ""
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/customer/kiosk"
+  if (!raw) return "/customer/dashboard"
+  if (!raw.startsWith("/") || raw.startsWith("//"))
+    return "/customer/dashboard"
   try {
     const url = new URL(raw, "http://prime.local")
-    if (url.origin !== "http://prime.local" || url.pathname !== "/customer/kiosk")
-      return "/customer/kiosk"
+    if (
+      url.origin !== "http://prime.local" ||
+      url.pathname !== "/customer/kiosk"
+    )
+      return "/customer/dashboard"
     const tableId = url.searchParams.get("tableId")
-    return tableId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(tableId)
+    if (!tableId) return "/customer/kiosk"
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      tableId
+    )
       ? `/customer/kiosk?tableId=${encodeURIComponent(tableId)}`
-      : "/customer/kiosk"
+      : "/customer/dashboard"
   } catch {
-    return "/customer/kiosk"
+    return "/customer/dashboard"
   }
 }
 
@@ -101,7 +109,7 @@ export async function registerCustomer(
     }
   }
   await createCustomerSession(customerId)
-  redirect(kioskReturnTo(formData.get("returnTo")))
+  redirect(customerReturnTo(formData.get("returnTo")))
 }
 
 export async function loginCustomer(
@@ -138,7 +146,7 @@ export async function loginCustomer(
     console.error("Customer login failed:", error)
     return { message: "Could not sign in. Please try again." }
   }
-  redirect(kioskReturnTo(formData.get("returnTo")))
+  redirect(customerReturnTo(formData.get("returnTo")))
 }
 
 export async function logoutCustomer() {

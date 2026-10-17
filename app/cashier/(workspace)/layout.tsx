@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import { CashierSidebar } from "@/components/cashier-sidebar"
 import { PrimePosChatbot } from "@/components/prime-pos-chatbot"
-import { PrimeLoadingScreen } from "@/components/prime-loading-screen"
+import { PageSkeleton } from "@/components/page-skeleton"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -16,7 +16,7 @@ export default function CashierLayout({
   return (
     <Suspense
       fallback={
-        <PrimeLoadingScreen appKey="cashier" title="Loading cashier workspace" />
+        <PageSkeleton />
       }
     >
       <AuthorizedCashierWorkspace>{children}</AuthorizedCashierWorkspace>

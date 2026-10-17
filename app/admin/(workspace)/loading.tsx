@@ -1,11 +1,7 @@
-import { PrimeLoadingScreen } from "@/components/prime-loading-screen"
+import { PageSkeleton } from "@/components/page-skeleton"
 
 export default function AdminLoading() {
   return (
-    <PrimeLoadingScreen
-      appKey="admin"
-      title="Loading your admin dashboard"
-      description="Preparing live restaurant data…"
-    />
+    <PageSkeleton />
   )
 }

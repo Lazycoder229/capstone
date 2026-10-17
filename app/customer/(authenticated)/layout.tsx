@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import { CustomerWorkspaceShell } from "@/components/customer-workspace-shell"
-import { PrimeLoadingScreen } from "@/components/prime-loading-screen"
+import { PageSkeleton } from "@/components/page-skeleton"
 import { requireCustomerSession } from "@/lib/customer-auth/session"
 
 export default function AuthenticatedCustomerLayout({
@@ -9,7 +9,7 @@ export default function AuthenticatedCustomerLayout({
   return (
     <Suspense
       fallback={
-        <PrimeLoadingScreen appKey="customer" title="Loading your account" />
+        <PageSkeleton />
       }
     >
       <AuthorizedCustomerWorkspace>{children}</AuthorizedCustomerWorkspace>
